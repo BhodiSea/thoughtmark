@@ -1,4 +1,4 @@
-# OSV-Scanner across cargo AND npm, SARIF upload. Pin `uses:` with pinact before enabling.
+# OSV-Scanner across cargo AND npm, SARIF upload (row 21 / Domain 6). SHA-pinned.
 name: osv-scanner
 on:
   push:
@@ -13,8 +13,8 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
       contents: read
+      security-events: write
     steps:
       - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
@@ -22,8 +22,10 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-      - uses: google/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+      - uses: taiki-e/install-action@15449e3094499af05d8d964a1c884208e4b8b595 # v2.81.11
         with:
-          scan-args: |-
-            --recursive
-            ./
+          tool: osv-scanner
+      - run: osv-scanner scan --recursive --format sarif --output osv.sarif ./ || true
+      - uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3.36.2
+        with:
+          sarif_file: osv.sarif
