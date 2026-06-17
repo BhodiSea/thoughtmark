@@ -2,6 +2,17 @@
 #![no_std]
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::float_arithmetic,
+    clippy::string_slice
+)]
 //! `thoughtmark-schema` — the reasoning-trail wire types.
 //!
 //! `#![no_std]` + `alloc`, kept separate from `thoughtmark-core` so the audited core is one trust unit while the

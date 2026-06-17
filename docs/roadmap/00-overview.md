@@ -90,7 +90,7 @@ These are honored across phase boundaries; once a gate closes, what it froze cha
 These hold in **every** phase ([architecture.md](../research/architecture.md) §2.1). Each is a compile-gate or CI-gate, never a convention.
 
 - **I1 — Byte-identical Rust / WASM / TS.** Identical logical input ⇒ byte-identical canonical bytes/digests/proofs/signatures/PAE on every platform; `spec/vectors/` is the oracle and one CI job asserts byte equality across native Rust + Node + headless browsers.
-- **I2 — JCS-before-hash via one choke point.** No bare `H(json)`; every hash is over RFC 8785 bytes through `thoughtmark_core::canon::canonicalize` over **`serde_json_canonicalizer`**; **`serde_jcs` is banned** (ADR-0001), and a clippy `disallowed-methods` lint bans `serde_json::to_vec`/`to_string` on hashed data.
+- **I2 — JCS-before-hash via one choke point.** No bare `H(json)`; every hash is over RFC 8785 bytes through `thoughtmark_core::canon::canonicalize` — an **in-house** `alloc` encoder (ADR-0001 **amended in Phase 1**: `serde_json_canonicalizer` is `std`-only, so it serves as a **dev-only differential oracle**, not the implementation). **`serde_jcs` is banned**, and a clippy `disallowed-methods` lint bans `serde_json::to_vec`/`to_string` on hashed data.
 - **I3 — No ambient nondeterminism.** No `SystemTime::now`/`Instant::now`/`thread_rng`/`random` in core; time enters as `Clock::now() -> UnixMillis`, randomness via `Rng`/`Csprng` traits, keys via `Signer` — all injected; `verify()` takes no RNG.
 - **I4 — No float on the canon/hash/CID/Merkle path.** WASM has NaN-bit and signed-zero nondeterminism; `f32`/`f64` are in `disallowed-types`, a `validate_no_float` walker rejects them, decimals are scaled integers (`*_milli: u32`), oversized integers are decimal strings (`bigint` in TS).
 - **I5 — Salted hashes only; no content on any chain.** On-ledger types carry `ContentDigest::Hashed { digest_hex }` or a CID and structurally cannot hold a plaintext body; `AnchorRequest` carries only a 32-byte root; raw bodies live off-ledger, crypto-shreddable.
@@ -116,7 +116,7 @@ All 13 ADR seeds ([architecture.md](../research/architecture.md) §18), mapped t
 
 | ADR | Decision (brief) | First bites @ |
 |---|---|---|
-| 0001 | JCS crate = `serde_json_canonicalizer`; `serde_jcs` banned (the day-one byte-format decision). | [P0](phase-0-foundations.md)–[P1](phase-1-tier0-core.md) |
+| 0001 | JCS canonicalization; `serde_jcs` banned (the day-one byte-format decision). **Amended P1**: canonicalize **in-house** (`serde_json_canonicalizer` is `std`-only → dev-only oracle). | [P0](phase-0-foundations.md)–[P1](phase-1-tier0-core.md) |
 | 0002 | One `thoughtmark-core` + separate `thoughtmark-schema`, not a `-canon`/`-crypto`/`-merkle` split (audit one trusted unit). | [P0](phase-0-foundations.md)–[P1](phase-1-tier0-core.md) |
 | 0003 | `just` + pnpm scripts, no Turborepo in v1 (`just ci` already orders Cargo→wasm→TS). | [P0](phase-0-foundations.md)–[P1](phase-1-tier0-core.md) |
 | 0004 | No umbrella meta-crate; explicit per-plugin deps (legible graph; no feature-unification leak into `no_std` core). | [P0](phase-0-foundations.md)–[P1](phase-1-tier0-core.md) |

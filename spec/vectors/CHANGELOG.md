@@ -5,6 +5,17 @@ The corpus is versioned independently from the code (its own SemVer in `VERSION`
 MAJOR corpus release. Three version axes are never conflated: code SemVer, corpus SemVer, and the format
 identifiers baked into hashed bytes (arch P4).
 
+## [0.1.1] — Phase 1: arm the UTF-16 key-sort guard (additive)
+
+- **Added `canon/0004`** (CANON-3): `{"￿":1,"😀":2}` → `{"😀":2,"￿":1}`. This is the first vector that
+  actually **discriminates** UTF-16 code-unit order from code-point / UTF-8 byte order. The prior astral case
+  `canon/0003` (`😀` vs `z`) sorts identically under all three orders, so it could not catch a regression to
+  code-point sorting — the exact class that killed `serde_jcs`. With `U+FFFF` vs `U+1F600`: under UTF-16, `😀`
+  (`D83D…`) sorts **before** `￿` (`FFFF`); under code-point / UTF-8, `￿` sorts first. A non-UTF-16 sort now fails
+  this vector across every executor (native Rust, WASM/Node, and the independent `cyberphone/canonicalize` oracle).
+- **Additive only** — no existing expected byte changed (`vector_count` 12 → 13), so this is a MINOR corpus release,
+  not a breaking one.
+
 ## [0.1.0] — Phase 1: real Tier-0 corpus
 
 - **Layout migrated** from inline `expected_bytes_b64` JSON to the directory-per-case raw-file layout (arch §13.2):

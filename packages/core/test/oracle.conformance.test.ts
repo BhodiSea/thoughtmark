@@ -27,6 +27,8 @@ const BLAKE3_MULTIHASH_CODE = 0x1e;
 const I_JSON_MAX = 9_007_199_254_740_991n; // 2^53 - 1
 const enc = new TextEncoder();
 const TURN_PREFIX = enc.encode("tm-jcs-1:blake3:thoughtmark.turn:");
+const OBJECT_PREFIX = enc.encode("tm-jcs-1:blake3:thoughtmark.object:");
+const MANIFEST_PREFIX = enc.encode("tm-jcs-1:blake3:thoughtmark.manifest:");
 
 interface Case {
   id: string;
@@ -265,8 +267,18 @@ describe("independent pure-TS oracle (cyberphone + noble + multiformats)", () =>
         expect(bytesToHex(blake3(canonicalizeOracle(input))), c.id).toBe(expected);
       } else if (c.op === "hash_sha256") {
         expect(bytesToHex(sha256(canonicalizeOracle(input))), c.id).toBe(expected);
-      } else if (c.op === "hash_domain_turn") {
-        const preimage = concatBytes(TURN_PREFIX, canonicalizeOracle(input));
+      } else if (
+        c.op === "hash_domain_turn" ||
+        c.op === "hash_domain_object" ||
+        c.op === "hash_domain_manifest"
+      ) {
+        const prefix =
+          c.op === "hash_domain_turn"
+            ? TURN_PREFIX
+            : c.op === "hash_domain_object"
+              ? OBJECT_PREFIX
+              : MANIFEST_PREFIX;
+        const preimage = concatBytes(prefix, canonicalizeOracle(input));
         expect(bytesToHex(blake3(preimage)), c.id).toBe(expected);
       } else if (c.op === "cid_v1") {
         const digest = createMultihash(BLAKE3_MULTIHASH_CODE, blake3(new Uint8Array(input)));

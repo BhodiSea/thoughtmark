@@ -496,9 +496,11 @@ depend on and pin in vectors:
 
 - **Key sort** = UTF-16 code units compared as unsigned `u16` — **not** Rust `char`/UTF-8 byte order and **not**
   Unicode code point. Astral-plane keys (U+10000+) diverge because a surrogate pair (0xD800..) sorts *before* a
-  BMP char like U+E000 under UTF-16 but *after* under code-point order. We never sort keys ourselves; we pin an
-  astral-plane vector, and a differential check against an independent JCS oracle (§13.3) guards specifically
-  against a sort divergence (the exact failure mode that killed `serde_jcs`).
+  BMP char like U+E000 under UTF-16 but *after* under code-point order. We sort keys ourselves by their UTF-16
+  code units (`encode_utf16`), and pin a **discriminating** astral-plane vector (`canon/0004`: `U+FFFF` vs
+  `U+1F600` — the only class where UTF-16 disagrees with code-point/UTF-8 order; a `😀`-vs-ASCII case does not
+  discriminate), plus a differential check against an independent JCS oracle (§13.3) guarding specifically against
+  a sort divergence (the exact failure mode that killed `serde_jcs`).
 - **Numbers** = ECMAScript `Number.prototype.toString`. We never exercise this branch on hashed data (§4.3).
 - **Strings** = minimal escaping per RFC 8785 §3.2.2.2; all other chars, including non-ASCII, emitted raw UTF-8.
 - **I-JSON** = no duplicate keys, UTF-8, no insignificant whitespace.

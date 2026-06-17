@@ -50,9 +50,13 @@ impl<'de> serde::Deserialize<'de> for UnixMillis {
                 f.write_str("a decimal string of milliseconds since the Unix epoch")
             }
             fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<UnixMillis, E> {
-                // Reject a leading '+', and any float/exponent syntax (`i64::from_str` already rejects those).
-                if v.starts_with('+') {
-                    return Err(E::custom("unix millis must not have a leading '+'"));
+                // Accept ONLY the canonical decimal form, so a deserialized value re-serializes byte-identically:
+                // no leading '+', no leading zeros ("007"), and no negative zero ("-0"). (`i64::from_str` also
+                // rejects floats/exponents and a bare '-'; overflow still fails closed at `.parse()`.)
+                if !is_canonical_decimal(v) {
+                    return Err(E::custom(
+                        "unix millis must be a canonical decimal integer (no leading '+', leading zeros, or '-0')",
+                    ));
                 }
                 let n: i64 = v
                     .parse()
@@ -63,4 +67,30 @@ impl<'de> serde::Deserialize<'de> for UnixMillis {
         // `deserialize_str` rejects a JSON number outright (forcing the string form, keeping I4).
         deserializer.deserialize_str(DecimalStringVisitor)
     }
+}
+
+/// True iff `v` is the canonical decimal form of an integer: an optional leading `-`, then either a single `0`
+/// or a non-zero leading digit followed by digits. Rejects leading `+`, leading zeros, and `-0`. Iterates
+/// `chars` (no slicing/indexing) to stay inside the no-panic wall.
+fn is_canonical_decimal(v: &str) -> bool {
+    let mut chars = v.chars();
+    let Some(mut first) = chars.next() else {
+        return false; // empty
+    };
+    let negative = first == '-';
+    if negative {
+        let Some(c) = chars.next() else {
+            return false; // bare "-"
+        };
+        first = c;
+    }
+    if !first.is_ascii_digit() {
+        return false; // leading '+', whitespace, sign-only, etc.
+    }
+    if first == '0' {
+        // A leading zero is canonical ONLY as the standalone "0" — never "-0", "00", or "007".
+        return !negative && chars.next().is_none();
+    }
+    // Non-zero leading digit: every remaining char must be a digit.
+    chars.all(|c| c.is_ascii_digit())
 }

@@ -22,8 +22,17 @@ fn sorts_keys_strips_whitespace() {
 }
 
 #[test]
-fn astral_key_sorts_after_bmp_by_utf16() {
-    // U+1F600 = surrogate pair D83D DE00; first unit 0xD83D > 'z' (0x007A).
+fn utf16_sort_discriminates_from_codepoint_order() {
+    // The serde_jcs-killer case. An astral key (U+1F600 = surrogate pair D83D DE00) vs a BMP key in
+    // [U+E000, U+FFFF] is the ONLY pair where UTF-16 code-unit order DISAGREES with code-point / UTF-8 byte
+    // order. UTF-16: first units 0xD83D < 0xFFFF, so 😀 sorts BEFORE ￿. Code-point / UTF-8: U+FFFF < U+1F600,
+    // so a `char`-based (code-point) or UTF-8-byte sort would put ￿ first. This assertion therefore FAILS under
+    // any non-UTF-16 sort — the regression that a `😀`-vs-`z` case (below) cannot catch.
+    assert_eq!(
+        canon::canonicalize_str("{\"\u{FFFF}\":1,\"\u{1F600}\":2}"),
+        Ok("{\"\u{1F600}\":2,\"\u{FFFF}\":1}".as_bytes().to_vec())
+    );
+    // Non-discriminating sanity check (all three orders agree here: 0xD83D > 'z' = 0x007A).
     assert_eq!(
         canon::canonicalize_str("{\"\u{1F600}\":1,\"z\":2}"),
         Ok("{\"z\":2,\"\u{1F600}\":1}".as_bytes().to_vec())
@@ -92,6 +101,70 @@ fn rejects_floats_and_big_ints() {
     assert_eq!(
         canon::canonicalize_str(r#"{"x":9007199254740993}"#),
         Err(CanonError::IntegerOutOfRange)
+    );
+}
+
+#[test]
+fn escapes_rare_c0_and_emits_del_raw() {
+    // 0x0B (vertical tab) and 0x1F have NO short escape -> lowercase \u00XX.
+    assert_eq!(
+        canon::canonicalize_str("\"\\u000b\""),
+        Ok("\"\\u000b\"".as_bytes().to_vec())
+    );
+    assert_eq!(
+        canon::canonicalize_str("\"\\u001f\""),
+        Ok("\"\\u001f\"".as_bytes().to_vec())
+    );
+    // U+007F (DEL) is NOT a C0 control; RFC 8785 emits it RAW (one byte 0x7f), never escaped.
+    assert_eq!(
+        canon::canonicalize_str("\"\\u007f\""),
+        Ok(b"\"\x7f\"".to_vec())
+    );
+}
+
+#[test]
+fn integer_boundaries_are_pinned() {
+    // 2^53 - 1 is the largest allowed; 2^53 and beyond are out of range (both signs).
+    assert_eq!(
+        canon::canonicalize_str("9007199254740991"),
+        Ok(b"9007199254740991".to_vec())
+    );
+    assert_eq!(
+        canon::canonicalize_str("9007199254740992"),
+        Err(CanonError::IntegerOutOfRange)
+    );
+    assert_eq!(
+        canon::canonicalize_str("-9007199254740991"),
+        Ok(b"-9007199254740991".to_vec())
+    );
+    assert_eq!(
+        canon::canonicalize_str("-9007199254740992"),
+        Err(CanonError::IntegerOutOfRange)
+    );
+}
+
+#[test]
+fn negative_zero_float_is_rejected_but_integer_zero_normalizes() {
+    // "-0.0" is a float -> rejected; "-0" is integer zero -> normalized to "0" (see `integers_normalize`).
+    assert_eq!(
+        canon::canonicalize_str("-0.0"),
+        Err(CanonError::FloatNotAllowed)
+    );
+}
+
+#[test]
+fn nan_and_infinity_are_invalid_json() {
+    assert_eq!(
+        canon::canonicalize_str("{\"x\":NaN}"),
+        Err(CanonError::InvalidJson)
+    );
+    assert_eq!(
+        canon::canonicalize_str("{\"x\":Infinity}"),
+        Err(CanonError::InvalidJson)
+    );
+    assert_eq!(
+        canon::canonicalize_str("{\"x\":-Infinity}"),
+        Err(CanonError::InvalidJson)
     );
 }
 
@@ -216,6 +289,27 @@ fn unix_millis_is_a_decimal_string() {
     assert!(serde_json::from_value::<UnixMillis>(serde_json::json!(5)).is_err());
 }
 
+#[test]
+fn unix_millis_accepts_negative_and_rejects_noncanonical() {
+    // Pre-epoch (negative) values round-trip.
+    assert_eq!(
+        serde_json::from_value::<UnixMillis>(Value::String("-123".to_owned())).ok(),
+        Some(UnixMillis(-123))
+    );
+    // Canonical "0" is accepted.
+    assert_eq!(
+        serde_json::from_value::<UnixMillis>(Value::String("0".to_owned())).ok(),
+        Some(UnixMillis(0))
+    );
+    // Non-canonical decimal strings fail closed (leading zeros, "-0", leading '+', float, hex, whitespace, empty).
+    for bad in ["007", "-0", "+5", "00", "1.0", "0x10", " 5", ""] {
+        assert!(
+            serde_json::from_value::<UnixMillis>(Value::String(bad.to_owned())).is_err(),
+            "expected rejection of {bad:?}"
+        );
+    }
+}
+
 // --- THE differential oracle -------------------------------------------------------------------------------------
 
 fn arb_json() -> impl Strategy<Value = Value> {
@@ -257,5 +351,49 @@ proptest! {
             .and_then(|b| serde_json::from_slice::<Value>(b).ok())
             .and_then(|parsed| canon::canonicalize_value(&parsed).ok());
         prop_assert_eq!(once, twice);
+    }
+
+    /// `hash(canonicalize(x))` is stable: the digest is invariant to input key order and to re-parsing the
+    /// canonical bytes — the property the conformance corpus relies on for cross-language hash equality.
+    #[test]
+    fn hash_of_canonicalize_is_stable(v in arb_json()) {
+        let canon1 = canon::canonicalize_value(&v).ok();
+        let h1 = canon1.as_ref().map(|b| canon::hash(b).bytes);
+        let h2 = canon1
+            .as_ref()
+            .and_then(|b| serde_json::from_slice::<Value>(b).ok())
+            .and_then(|parsed| canon::canonicalize_value(&parsed).ok())
+            .map(|b| canon::hash(&b).bytes);
+        prop_assert_eq!(h1, h2);
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(1024))]
+
+    /// `validate_no_float` rejects every JSON float — both decimal-point and exponent forms — through the
+    /// `canonicalize_str` boundary. (Float tokens are synthesized as strings so the test never names `f64`, which
+    /// the `disallowed-types` wall forbids even here.)
+    #[test]
+    fn validate_no_float_rejects_every_float(int in 0u64..=1_000_000u64, frac in 0u64..=1_000_000u64) {
+        prop_assert_eq!(
+            canon::canonicalize_str(&format!("{int}.{frac}")),
+            Err(CanonError::FloatNotAllowed)
+        );
+        prop_assert_eq!(
+            canon::canonicalize_str(&format!("{int}e{frac}")),
+            Err(CanonError::FloatNotAllowed)
+        );
+    }
+
+    /// `validate_no_float` rejects every integer outside the I-JSON safe range `[-(2^53-1), 2^53-1]`.
+    #[test]
+    fn validate_no_float_rejects_oversized_ints(
+        i in prop_oneof![9_007_199_254_740_992i64..=i64::MAX, i64::MIN..=-9_007_199_254_740_992i64],
+    ) {
+        prop_assert_eq!(
+            canon::canonicalize_value(&Value::Number(i.into())),
+            Err(CanonError::IntegerOutOfRange)
+        );
     }
 }

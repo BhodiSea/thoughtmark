@@ -1,7 +1,7 @@
 {
   "vectors_version": "0.1.0",
   "canon_version": "tm-jcs-1",
-  "vector_count": 12,
+  "vector_count": 15,
   "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
   "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG).",
   "cases": [
@@ -25,6 +25,13 @@
       "op": "canonicalize",
       "input": "canon/0003/input.json",
       "expected": "canon/0003/expected.bin"
+    },
+    {
+      "id": "canon/0004",
+      "spec_req": "CANON-3",
+      "op": "canonicalize",
+      "input": "canon/0004/input.json",
+      "expected": "canon/0004/expected.bin"
     },
     {
       "id": "hash/0001:blake3",
@@ -53,6 +60,20 @@
       "op": "hash_domain_turn",
       "input": "domain/0001/input.json",
       "expected": "domain/0001/expected.hex"
+    },
+    {
+      "id": "domain/0002",
+      "spec_req": "HASH-2",
+      "op": "hash_domain_object",
+      "input": "domain/0002/input.json",
+      "expected": "domain/0002/expected.hex"
+    },
+    {
+      "id": "domain/0003",
+      "spec_req": "HASH-2",
+      "op": "hash_domain_manifest",
+      "input": "domain/0003/input.json",
+      "expected": "domain/0003/expected.hex"
     },
     {
       "id": "negative/0001",
