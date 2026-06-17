@@ -1,0 +1,14 @@
+{
+  "_comment": "TEMPLATE — NOT effective from inside the repo. Install at the OS-managed path by an administrator to take effect (see BOOTSTRAP.md). With these flags the AI author cannot loosen its own permission rules or plugin customizations beyond the managed policy, so the .claude lock-down cannot be weakened locally. CI (required-checks ruleset) remains the real enforcement; this is defense-in-depth. Verify key names + the macOS path (/Library/Application Support/ClaudeCode/managed-settings.json) against current docs.",
+  "permissions": {
+    "deny": [
+      "Edit(./.claude/**)",
+      "Edit(./.github/**)",
+      "Edit(./deny.toml)",
+      "Edit(./rust-toolchain.toml)",
+      "Edit(./clippy.toml)"
+    ]
+  },
+  "allowManagedPermissionRulesOnly": true,
+  "strictPluginOnlyCustomization": true
+}

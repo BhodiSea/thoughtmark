@@ -1,0 +1,22 @@
+[package]
+name = "thoughtmark-testkit"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Dev-only conformance harness: loads spec/vectors and drives thoughtmark-core. Not published."
+
+[dependencies]
+thoughtmark-core = { workspace = true }
+serde_json = { workspace = true, features = ["std"] }
+base64 = "0.22"
+
+[lints]
+workspace = true

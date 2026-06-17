@@ -1,0 +1,23 @@
+[package]
+name = "thoughtmark-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "The `tm` reference/debug CLI for thoughtmark: verify bundles, print/bless conformance vectors."
+
+[[bin]]
+name = "tm"
+path = "src/main.rs"
+
+[dependencies]
+thoughtmark-core = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,34 @@
+# Standalone cargo-fuzz project — OUTSIDE the main workspace (ADR-0006). cargo-fuzz pins a dated nightly; a
+# workspace member would drag the repo off the 1.96.0 stable pin. Run in a dedicated nightly CI job.
+[package]
+name = "thoughtmark-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+thoughtmark-core = { path = "../crates/thoughtmark-core" }
+
+# Detach from the parent workspace.
+[workspace]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "jcs"
+path = "fuzz_targets/jcs.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cid"
+path = "fuzz_targets/cid.rs"
+test = false
+doc = false
+bench = false

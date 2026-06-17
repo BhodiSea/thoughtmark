@@ -1,0 +1,4 @@
+# Our own cargo-vet audit entries. None yet — the audited core has zero third-party runtime dependencies in
+# Phase 0. As Tier-0/1 crypto deps land (blake3, sha2, ed25519-dalek, …) they are vetted here or covered by the
+# imported Mozilla/Google sets. `cargo vet certify` appends entries.
+[audits]

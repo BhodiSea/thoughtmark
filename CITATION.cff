@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+cff-version: 1.2.0
+message: "If you use thoughtmark in academic work, please cite it."
+title: "thoughtmark: tamper-evident provenance for human-AI reasoning trails"
+abstract: >-
+  thoughtmark is a research-tier library that proves integrity-of-record (a record existed at a time, in a
+  lineage, unaltered since capture; append-only consistency; signer identity) for human-AI reasoning trails,
+  with byte-identical Rust core / WASM / TypeScript implementations and a versioned conformance corpus.
+type: software
+authors:
+  - name: "The thoughtmark authors"
+license: Apache-2.0
+repository-code: "https://github.com/OWNER/thoughtmark"
+version: "0.1.0"
+date-released: "2026-06-17"
+keywords:
+  - provenance
+  - integrity
+  - transparency-log
+  - canonicalization
+  - reasoning-trail

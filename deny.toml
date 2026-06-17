@@ -1,0 +1,30 @@
+# cargo-deny policy (qf Domain 6, row 7). Complementary to cargo-vet (supply-chain/) and cargo-audit.
+# License allowlist is expanded to the actual transitive set during bring-up (R7). Schema: cargo-deny v0.16+/v2.
+
+[advisories]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+
+[licenses]
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+  "CC0-1.0",
+  "BSD-2-Clause",
+]
+confidence-threshold = 0.93
+# The allowlist is intentionally forward-looking (Phase 1 crypto deps); don't warn on not-yet-encountered ones.
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

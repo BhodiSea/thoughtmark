@@ -1,0 +1,18 @@
+# Secret scanning (row 21) — complements GitHub push protection (enabled via BOOTSTRAP.md).
+name: gitleaks
+on:
+  push: {}
+  pull_request: {}
+permissions:
+  contents: read
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2

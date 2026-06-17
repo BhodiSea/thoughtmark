@@ -1,0 +1,39 @@
+# Rust / Cargo
+/target/
+**/target/
+# fuzz/ is a standalone project (ADR-0006)
+/fuzz/target/
+/fuzz/corpus/
+/fuzz/artifacts/
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+
+# Generated WASM artifact (rebuilt in CI; the seam, arch §12.2)
+/packages/core/wasm/
+# Generated TS build output
+dist/
+**/dist/
+
+# Secrets & local environment — a committed key must be impossible (row 21)
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+/secrets/
+
+# Claude Code personal overrides (row 2; CLAUDE.local.md never committed)
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Build / tooling output
+/docs/book/book/
+*.log
+.DS_Store
+coverage/
+*.tsbuildinfo
+
+# mdBook / SBOM scratch
+/sbom/

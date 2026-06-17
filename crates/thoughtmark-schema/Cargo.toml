@@ -1,0 +1,26 @@
+[package]
+name = "thoughtmark-schema"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Reasoning-trail wire types for thoughtmark (no_std + alloc). Separate from core per ADR-0002."
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+# Off by default; only thoughtmark-schemagen enables it, so production/wasm builds never carry schemars (arch §3.5).
+json_schema = []
+
+# Phase 0: ZERO dependencies. serde wire structs (Trail/Turn/ContentPart/…) land in Phase 1.
+[dependencies]
+
+[lints]
+workspace = true

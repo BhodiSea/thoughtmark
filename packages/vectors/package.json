@@ -1,0 +1,8 @@
+{
+  "name": "@thoughtmark/vectors",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The thoughtmark conformance corpus for TS consumers (published Phase 3+). Source of truth: /spec/vectors.",
+  "license": "Apache-2.0"
+}

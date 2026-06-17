@@ -1,0 +1,29 @@
+# crate-ci/typos spell-check (row 18). `typos` runs in CI and as a pre-commit hook.
+[files]
+extend-exclude = [
+  "Cargo.lock",
+  "pnpm-lock.yaml",
+  "spec/vectors/**",
+  "docs/research/**",
+  "packages/core/wasm/**",
+  "**/dist/**",
+  "**/node_modules/**",
+  "target/**",
+  "LICENSE",
+  "LICENSES/**",
+]
+
+[default.extend-identifiers]
+# Domain terms / proper nouns that are not typos.
+thoughtmark = "thoughtmark"
+medqbank = "medqbank"
+zeroize = "zeroize"
+secrecy = "secrecy"
+blake3 = "blake3"
+
+[default.extend-words]
+# Short tokens that the dictionary may flag.
+JCS = "JCS"
+DSSE = "DSSE"
+CID = "CID"
+PAE = "PAE"

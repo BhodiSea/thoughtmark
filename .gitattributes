@@ -1,0 +1,17 @@
+# Deterministic line endings everywhere (row 18). WASM is binary.
+* text=auto eol=lf
+
+*.wasm binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.bin binary
+
+# Lockfiles and vectors are normative artifacts — keep diffs honest, never auto-merge.
+Cargo.lock -diff
+pnpm-lock.yaml -diff
+spec/vectors/** -merge
+
+# Shell scripts and hooks must stay LF + executable-friendly.
+*.sh text eol=lf
+.claude/hooks/* text eol=lf

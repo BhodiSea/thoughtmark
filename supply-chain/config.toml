@@ -1,0 +1,11 @@
+# cargo-vet configuration (qf Domain 6, row 7) — complementary to cargo-deny (policy) and cargo-audit
+# (advisories), the 2026 org-standard preferred over cargo-crev. `cargo vet init` populates `[exemptions]` for
+# the current tree (so `cargo vet` passes immediately); imported audit sets then retire exemptions over time.
+[cargo-vet]
+version = "0.10"
+
+[imports.mozilla]
+url = "https://raw.githubusercontent.com/mozilla/supply-chain/main/audits.toml"
+
+[imports.google]
+url = "https://raw.githubusercontent.com/google/rust-crate-audits/main/audits.toml"

@@ -1,0 +1,14 @@
+{
+  "corpus_version": "0.0.0",
+  "canon_version": 0,
+  "description": "Phase 0 conformance corpus. Every case's expected output is the canonical NOT_IMPLEMENTED envelope (SPEC.md §4); the gate asserts Rust <-> WASM/TS byte-equality before any real logic lands.",
+  "envelope_not_implemented_b64": "eyJvayI6ZmFsc2UsImVycm9yIjp7ImNvZGUiOiJOT1RfSU1QTEVNRU5URUQifX0=",
+  "vectors": [
+    { "vector_id": "canon-0001",    "op": "canonicalize", "spec_req": "CANON-1", "path": "canon/canon-0001.json" },
+    { "vector_id": "canon-0002",    "op": "canonicalize", "spec_req": "CANON-3", "path": "canon/canon-0002.json" },
+    { "vector_id": "hash-0001",     "op": "hash_blake3",  "spec_req": "HASH-1",  "path": "hash/hash-0001.json" },
+    { "vector_id": "hash-0002",     "op": "hash_sha256",  "spec_req": "HASH-1",  "path": "hash/hash-0002.json" },
+    { "vector_id": "cid-0001",      "op": "cid_v1",       "spec_req": "CID-1",   "path": "cid/cid-0001.json" },
+    { "vector_id": "negative-0001", "op": "unknown_op",   "spec_req": "CORE-2",  "path": "negative/negative-0001.json" }
+  ]
+}

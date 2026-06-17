@@ -1,0 +1,36 @@
+[package]
+name = "thoughtmark-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "The pure audited primitive for thoughtmark (no_std + alloc, forbid unsafe): canon/hash/CID/Merkle/DSSE."
+
+[features]
+default = ["std"]
+std = ["alloc"]
+alloc = []
+# Off by default: gates the one RNG-injecting helper so the audited verify path never links a CSPRNG (arch §3.5).
+keygen = []
+# Off by default: gates FixedClock/SeededRng so production can never reproduce a real salt/key from a test seed.
+vectors = []
+
+# Phase 0: ZERO runtime dependencies. The audited core is its own trust unit; Tier-0/1 deps
+# (serde_json_canonicalizer, blake3, sha2, ed25519-dalek, cid) land with the logic in Phase 1+.
+[dependencies]
+
+# Wired now; activate as Tier-0 logic lands (Phase 1). proptest: invariants as properties (canonicalize
+# idempotence, hash stability); insta: byte snapshots. Dev-deps are invisible to the dep-direction / wasm32
+# no-leak checks (both use `-e normal`).
+[dev-dependencies]
+proptest = "1"
+insta = "1"
+
+[lints]
+workspace = true

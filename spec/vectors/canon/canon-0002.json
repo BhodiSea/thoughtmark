@@ -1,0 +1,9 @@
+{
+  "vector_id": "canon-0002",
+  "spec_req": "CANON-3",
+  "canon_version": 0,
+  "op": "canonicalize",
+  "input": {"é":3,"a":1},
+  "expected_status": "not_implemented",
+  "expected_bytes_b64": "eyJvayI6ZmFsc2UsImVycm9yIjp7ImNvZGUiOiJOT1RfSU1QTEVNRU5URUQifX0="
+}

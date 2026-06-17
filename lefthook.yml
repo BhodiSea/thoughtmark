@@ -1,0 +1,21 @@
+# Local mirror of CI (row 17): hooks are advisory, CI is authoritative. `lefthook install` registers these.
+# pre-commit is the FAST subset; pre-push runs the full `just ci`. Each Rust command sources the rustup env so
+# the pinned 1.96.0 shims win over Homebrew cargo (R1/R11).
+pre-commit:
+  parallel: true
+  commands:
+    fmt:
+      glob: "*.rs"
+      run: bash -c '. "$HOME/.cargo/env" 2>/dev/null || true; cargo fmt --all -- --check'
+    clippy:
+      run: bash -c '. "$HOME/.cargo/env" 2>/dev/null || true; cargo clippy --all-targets --all-features -- -D warnings'
+    typos:
+      run: bash -c '. "$HOME/.cargo/env" 2>/dev/null || true; typos'
+    biome:
+      glob: "*.{ts,tsx,js,json}"
+      run: pnpm biome check {staged_files}
+
+pre-push:
+  commands:
+    ci:
+      run: just ci

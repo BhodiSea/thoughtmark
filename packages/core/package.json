@@ -1,0 +1,32 @@
+{
+  "name": "@thoughtmark/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WASM/TypeScript bindings for thoughtmark — byte-identical to the Rust core (the conformance seam).",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/browser.js",
+      "default": "./dist/node.js"
+    }
+  },
+  "main": "./dist/node.js",
+  "module": "./dist/node.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "wasm"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:conformance": "vitest run conformance",
+    "test:wasm": "node -e \"console.log('wasm-bindgen-test runs via cargo (Node runner) in just ci-wasm; browser matrix in CI')\"",
+    "publint": "publint",
+    "attw": "attw --pack . --profile esm-only"
+  }
+}

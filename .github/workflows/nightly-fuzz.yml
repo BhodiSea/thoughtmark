@@ -1,0 +1,27 @@
+# Dedicated nightly fuzz job (ADR-0006): cargo-fuzz pins a dated nightly, OUTSIDE the 1.96.0 stable workspace.
+# Targets activate per-parser as that parser lands (jcs/cid in Phase 1).
+name: nightly-fuzz
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Smoke fuzz targets briefly
+        working-directory: fuzz
+        run: |
+          for t in jcs cid; do
+            cargo +nightly fuzz run "$t" -- -runs=20000 -max_total_time=120 || true
+          done

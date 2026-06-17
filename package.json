@@ -1,0 +1,31 @@
+{
+  "name": "thoughtmark-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test:conformance": "pnpm -r --if-present test:conformance",
+    "test:wasm": "pnpm -r --if-present test:wasm",
+    "publint": "pnpm -r --if-present publint",
+    "attw": "pnpm -r --if-present attw",
+    "knip": "knip"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18",
+    "@biomejs/biome": "^2",
+    "@tsconfig/strictest": "^2",
+    "@types/node": "^22",
+    "knip": "^5",
+    "publint": "^0.3",
+    "typescript": "^5.8",
+    "vitest": "^2.1"
+  }
+}

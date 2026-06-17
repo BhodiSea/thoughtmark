@@ -1,0 +1,8 @@
+# Deterministic TOML formatting (rows 5/18). `taplo fmt --check` runs in CI.
+[formatting]
+align_entries = false
+array_auto_expand = true
+column_width = 100
+indent_string = "  "
+reorder_keys = false
+trailing_newline = true

@@ -1,0 +1,24 @@
+[package]
+name = "thoughtmark-schemagen"
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Build-only code generation (JSON Schema + TS types) from thoughtmark-schema. Not published."
+
+[[bin]]
+name = "thoughtmark-schemagen"
+path = "src/main.rs"
+
+[dependencies]
+thoughtmark-schema = { workspace = true }
+
+[lints]
+workspace = true

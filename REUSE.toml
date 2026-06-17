@@ -1,0 +1,12 @@
+# REUSE 3.0 bulk annotations (row 26). Source files carry their own SPDX header (which takes precedence); this
+# file licenses the data/config/doc files so `reuse lint` is green without a header in every JSON/TOML/lockfile.
+version = 1
+SPDX-PackageName = "thoughtmark"
+SPDX-PackageSupplier = "The thoughtmark authors"
+SPDX-PackageDownloadLocation = "https://github.com/OWNER/thoughtmark"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The thoughtmark authors"
+SPDX-License-Identifier = "Apache-2.0"

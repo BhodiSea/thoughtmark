@@ -1,0 +1,6 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+# Supply-chain cooldown: don't resolve a version younger than this many minutes — guards against pulling a
+# just-published malicious version (row 14). pnpm 10+.
+minimumReleaseAge: 1440

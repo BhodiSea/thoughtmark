@@ -1,0 +1,21 @@
+# Ban ambient nondeterminism (I3) and non-canonical serialization on hashed data (I2), plus floats (I4).
+# These reinforce the lints in Cargo.toml [workspace.lints]; unknown paths (deps not yet present) are ignored.
+disallowed-methods = [
+  { path = "std::time::SystemTime::now", reason = "non-deterministic; inject a Clock::now() -> UnixMillis (I3)" },
+  { path = "std::time::Instant::now", reason = "non-deterministic (I3)" },
+  { path = "rand::thread_rng", reason = "ambient RNG; pass an explicit Rng/Csprng (I3)" },
+  { path = "rand::random", reason = "ambient RNG; pass an explicit Rng/Csprng (I3)" },
+  { path = "serde_json::to_vec", reason = "hash only RFC 8785 JCS bytes; use canon::canonicalize (I2)" },
+  { path = "serde_json::to_vec_pretty", reason = "non-canonical; use canon::canonicalize (I2)" },
+  { path = "serde_json::to_string", reason = "non-canonical; use canon::canonicalize (I2)" },
+  { path = "serde_json::to_string_pretty", reason = "non-canonical; use canon::canonicalize (I2)" },
+  { path = "ed25519_dalek::VerifyingKey::verify", reason = "use verify_strict (rejects malleable sigs) — I6" },
+]
+
+# No floats anywhere on the canon/hash/CID/merkle path (WASM NaN-bit + signed-zero nondeterminism, I4).
+# Global here because nothing in this project legitimately needs floating point.
+disallowed-types = [
+  { path = "std::time::SystemTime", reason = "inject a Clock (I3)" },
+  { path = "f32", reason = "no float on the canon/hash/CID/merkle path (I4)" },
+  { path = "f64", reason = "no float on the canon/hash/CID/merkle path (I4)" },
+]

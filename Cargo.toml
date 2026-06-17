@@ -1,0 +1,71 @@
+# Workspace root — `crates/` ONLY, never spans `apps/` (arch §3.1). The two build graphs (Cargo + pnpm)
+# touch at exactly one seam: crates/thoughtmark-wasm cdylib -> packages/core (arch §3.1/§12.2).
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+exclude = [
+  "fuzz",
+] # cargo-fuzz pins a dated nightly; keep it OUT of the 1.96.0 stable workspace (ADR-0006)
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96.0"
+license = "Apache-2.0"
+authors = ["The thoughtmark authors"]
+description = "Tamper-evident provenance for human-AI reasoning trails: integrity-of-record, not validity."
+repository = "https://github.com/OWNER/thoughtmark"
+homepage = "https://github.com/OWNER/thoughtmark"
+documentation = "https://docs.rs/thoughtmark-core"
+keywords = ["provenance", "integrity", "merkle", "canonicalization", "transparency"]
+categories = ["cryptography", "no-std"]
+
+# Audited crate set, pinned, all `default-features = false` (arch §3.6). NO `rand_core` in core.
+# `serde_jcs` is BANNED — use `serde_json_canonicalizer` (ADR-0001). Unused-by-Phase-0 entries are inert
+# (they only enter Cargo.lock when a crate actually depends on them); they pin the set for Phase 1+.
+[workspace.dependencies]
+thoughtmark-core = { path = "crates/thoughtmark-core", version = "0.1.0", default-features = false }
+thoughtmark-schema = { path = "crates/thoughtmark-schema", version = "0.1.0", default-features = false }
+serde_json_canonicalizer = "0.3" # RFC 8785 JCS
+serde = { version = "1", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "1", default-features = false, features = [
+  "alloc",
+  "arbitrary_precision",
+] }
+blake3 = { version = "1.8", default-features = false }
+sha2 = { version = "0.11", default-features = false }
+ed25519-dalek = { version = "2.2", default-features = false, features = [
+  "alloc",
+] } # NO rand_core in core
+cid = { version = "0.11", default-features = false, features = ["alloc"] }
+multihash = { version = "0.19", default-features = false }
+subtle = { version = "2", default-features = false }
+zeroize = { version = "1", default-features = false }
+thiserror = { version = "2", default-features = false }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"   # per-crate override allows it ONLY in thoughtmark-wasm
+missing_docs = "warn"
+unreachable_pub = "warn"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+# doc_markdown is a noisy documentation-style pedantic lint (flags every acronym: JCS, CID, RFC, WASM, BLAKE3).
+# Allowing it is a justified relaxation — it is not a correctness/safety lint and does not weaken the no-panic wall.
+doc_markdown = "allow"
+# no-panic wall (a panic crossing the WASM boundary is an uncatchable RuntimeError, arch §2.3).
+# Relax per-crate ONLY with justification (e.g. test harnesses, where a panic is the failure signal).
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+float_arithmetic = "deny"
+
+[profile.release]
+# NOTE: `trim-paths = "all"` (RFC 3127 reproducible paths) is gated as unstable in this toolchain's cargo, so it
+# is deferred to the reproducible-build release job (Phase 3); re-enable here once the pin's cargo stabilizes it.
+# Never hand-roll --remap-path-prefix as a substitute (qf Domain 7).
+strip = true
+lto = "thin"

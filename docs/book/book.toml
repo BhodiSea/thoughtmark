@@ -1,0 +1,11 @@
+# mdBook guide/spec (qf Domain 8). Idiomatic for Rust; built in CI, output is gitignored.
+[book]
+title = "thoughtmark"
+description = "Tamper-evident provenance for human-AI reasoning trails: integrity-of-record, not validity."
+authors = ["The thoughtmark authors"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/OWNER/thoughtmark"

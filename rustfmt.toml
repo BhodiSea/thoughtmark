@@ -1,0 +1,7 @@
+# Deterministic Rust formatting (rows 5/18). Stable options only — unstable options need nightly and
+# would break the 1.96.0 stable pin.
+edition = "2024"
+max_width = 100
+newline_style = "Unix"
+use_field_init_shorthand = true
+use_try_shorthand = true

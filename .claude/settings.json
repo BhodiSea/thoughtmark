@@ -1,0 +1,68 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(rm -rf /*)",
+      "Bash(sudo*)",
+      "Bash(curl*| sh)",
+      "Bash(curl*| bash)",
+      "Bash(wget*| sh)",
+      "Read(./.env*)",
+      "Read(./secrets/**)",
+      "Read(./**/*.key)",
+      "Read(./**/*.pem)",
+      "Edit(./.claude/**)",
+      "Edit(./.github/**)",
+      "Edit(./deny.toml)",
+      "Edit(./rust-toolchain.toml)",
+      "Edit(./clippy.toml)",
+      "Edit(./CODEOWNERS)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(cargo publish*)",
+      "Bash(npm publish*)",
+      "Bash(pnpm publish*)",
+      "Bash(gh *)"
+    ],
+    "allow": [
+      "Bash(cargo build*)",
+      "Bash(cargo nextest run*)",
+      "Bash(cargo test*)",
+      "Bash(cargo clippy*)",
+      "Bash(cargo fmt*)",
+      "Bash(cargo deny*)",
+      "Bash(cargo audit*)",
+      "Bash(cargo metadata*)",
+      "Bash(cargo tree*)",
+      "Bash(just *)",
+      "Bash(pnpm *)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Read(./**)",
+      "Edit(./crates/**)",
+      "Edit(./packages/**)",
+      "Edit(./tests/**)",
+      "Edit(./spec/**)",
+      "Edit(./scripts/**)",
+      "Edit(./docs/**)"
+    ]
+  },
+  "env": { "RUSTFLAGS": "-D warnings", "RUST_BACKTRACE": "1" },
+  "sandbox": {
+    "enabled": false,
+    "filesystem": { "denyWrite": ["./.claude", "./.github"] },
+    "network": { "allowedDomains": ["crates.io", "static.crates.io", "registry.npmjs.org", "github.com"] }
+  },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "./.claude/hooks/guard-bash.sh" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "Edit|Write", "hooks": [{ "type": "command", "command": "./.claude/hooks/fmt-lint.sh" }] }
+    ]
+  }
+}

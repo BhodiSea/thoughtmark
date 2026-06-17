@@ -1,0 +1,23 @@
+# CODEOWNERS — route reviews; guardrail paths require a human (qf Domain 1/5, row 18).
+# The harness lock-down (.claude/settings.json deny rules) and the GitHub ruleset
+# (BOOTSTRAP.md) are the real enforcement; this file documents intent and requests review.
+
+# Default: everything is owned by the maintainers.
+*                       @OWNER
+
+# Guardrails — never auto-mergeable by the AI author; a human MUST review.
+/.github/                @OWNER
+/.claude/                @OWNER
+/deny.toml               @OWNER
+/rust-toolchain.toml     @OWNER
+/Cargo.toml              @OWNER
+/clippy.toml             @OWNER
+
+# Normative artifacts — the executable spec and its vectors.
+/spec/                   @OWNER
+/docs/adr/               @OWNER
+/docs/threat-model.md    @OWNER
+
+# Audited crypto surface.
+/crates/thoughtmark-core/   @OWNER
+/crates/thoughtmark-schema/ @OWNER

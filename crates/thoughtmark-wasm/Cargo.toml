@@ -1,0 +1,42 @@
+[package]
+name = "thoughtmark-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "WASM/TypeScript binding seam for thoughtmark — the ONLY crate allowed unsafe / getrandom-js."
+
+[lib]
+crate-type = [
+  "cdylib",
+  "rlib",
+] # cdylib for the npm artifact; rlib so native differential tests can link it (§13.4)
+
+# Disable wasm-opt in Phase 0: binaryen output is not byte-stable across versions, so for the reproducible-.wasm
+# claim we either pin binaryen or disable it. Phase 0 disables it (lowest variance); pinning lands with the
+# rebuild-and-diff job (qf Domain 7, arch §12.5).
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+# The ONLY place forbid(unsafe_code) is relaxed: wasm-bindgen emits unsafe. Do NOT set `lints.workspace = true`
+# here (that would re-forbid unsafe). Confine the blast radius to this crate.
+[lints.rust]
+unsafe_code = "allow"
+unsafe_op_in_unsafe_fn = "deny"
+
+[dependencies]
+thoughtmark-core = { workspace = true, features = [
+  "alloc",
+] } # alloc-only (workspace dep is default-features=false)
+thoughtmark-schema = { workspace = true, features = ["alloc"] }
+wasm-bindgen = "=0.2.125" # EXACT pin; the wasm-bindgen CLI version MUST equal this (just doctor asserts)
+
+# getrandom-js blast radius is CONFINED HERE, never in core (the wasm32 no-leak CI job asserts its absence in core).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }

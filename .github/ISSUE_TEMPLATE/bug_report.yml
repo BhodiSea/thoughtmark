@@ -1,0 +1,25 @@
+name: Bug report
+description: A determinism, conformance, or correctness defect.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the failing `spec/vectors/` `vector_id` and the SPEC.md requirement ID if known.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Exact `just`/`cargo`/`pnpm` command and the first byte mismatch (Rust vs WASM/TS) if a conformance failure.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Rust toolchain, corpus VERSION, `@thoughtmark/core` version.
+    validations:
+      required: true
