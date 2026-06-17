@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Cross-language conformance — the WASM-under-Node executor (row 10). Asserts @thoughtmark/core's output is
-// byte-identical to every spec/vectors case, against the SAME corpus the native Rust executor reads (R13). Against
-// Phase-0 stubs every case is the canonical NOT_IMPLEMENTED envelope — a real byte-equality assertion.
-import { readdirSync, readFileSync, statSync } from "node:fs";
+// byte-identical to every spec/vectors case, against the SAME corpus the native Rust executor reads (R13). Each
+// manifest case maps 1:1 to a runOp(op, input) call: positive cases compare output bytes to the `expected` file;
+// negative cases assert the embedded ErrorCode equals `expect_error` (fail-closed).
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { ensureReady, runOp } from "../src/node.js";
 
-interface VectorFile {
-  vector_id: string;
+interface Case {
+  id: string;
   spec_req: string;
   op: string;
-  expected_bytes_b64: string;
+  input: string;
+  expected?: string;
+  expect_error?: string;
+  expected_code?: string;
+}
+
+interface Manifest {
+  vector_count: number;
+  cases: Case[];
 }
 
 function vectorsDir(): string {
@@ -23,32 +32,45 @@ function vectorsDir(): string {
   return fileURLToPath(new URL("../../../spec/vectors", import.meta.url));
 }
 
-function collectJson(dir: string, out: string[]): void {
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) {
-      collectJson(path, out);
-    } else if (name.endsWith(".json") && name !== "manifest.json") {
-      out.push(path);
+function extractCode(out: Uint8Array): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(out).toString("utf8"));
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      (parsed as { ok?: unknown }).ok === false
+    ) {
+      const code = (parsed as { error?: { code?: unknown } }).error?.code;
+      return typeof code === "string" ? code : undefined;
     }
+  } catch {
+    return undefined;
   }
+  return undefined;
 }
 
 describe("cross-language conformance (WASM under Node)", () => {
   it("is byte-identical to the spec/vectors corpus", async () => {
     await ensureReady();
 
-    const files: string[] = [];
-    collectJson(vectorsDir(), files);
-    files.sort();
-    expect(files.length, "corpus is empty — the gate would be vacuous").toBeGreaterThan(0);
+    const root = vectorsDir();
+    const manifest = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8")) as Manifest;
 
-    for (const file of files) {
-      const v = JSON.parse(readFileSync(file, "utf8")) as VectorFile;
-      const expected = Buffer.from(v.expected_bytes_b64, "base64");
-      // Phase 0 ops ignore input (CORE-2); canonical input wiring lands in Phase 1.
-      const actual = Buffer.from(runOp(v.op, new Uint8Array()));
-      expect(actual.equals(expected), `vector ${v.vector_id} (spec_req ${v.spec_req})`).toBe(true);
+    expect(manifest.cases.length, "corpus is empty — the gate would be vacuous").toBeGreaterThan(0);
+    // Count parity with the native Rust executor (R13).
+    expect(manifest.cases.length).toBe(manifest.vector_count);
+
+    for (const c of manifest.cases) {
+      const input = readFileSync(join(root, c.input));
+      const out = runOp(c.op, new Uint8Array(input));
+      if (typeof c.expect_error === "string") {
+        expect(extractCode(out), `${c.id} (${c.op}): error code`).toBe(c.expect_error);
+      } else if (typeof c.expected === "string") {
+        const expected = readFileSync(join(root, c.expected));
+        expect(Buffer.from(out).equals(expected), `${c.id} (${c.op})`).toBe(true);
+      } else {
+        throw new Error(`${c.id}: case has neither expected nor expect_error`);
+      }
     }
   });
 });

@@ -103,7 +103,7 @@ violates one of these, the design choice is wrong.
 | # | Invariant | Structural enforcement (mechanism, not promise) |
 |---|---|---|
 | **I1** | **Byte-identical output across Rust core, WASM, and TS.** Identical logical input ⇒ byte-identical canonical bytes / digests / proofs / signatures / PAE on every platform. | `spec/vectors/` is the oracle (§13). One required CI job runs native Rust **and** the WASM build (Node + 3 headless browser engines) over every vector and asserts byte equality against the committed expected files. The WASM module *is* the same compiled Rust (§12); the boundary carries only `Uint8Array`/`string`/`bigint`, never structured JS objects, so no JS-side re-encoding can occur. |
-| **I2** | **Always JCS-canonicalize before hashing.** No bare `H(json)`; every hash is over RFC 8785 bytes with a domain/version prefix (§4.5). | A single choke point `thoughtmark_core::canon::canonicalize` over **`serde_json_canonicalizer`** (the maintained crate; **`serde_jcs` is abandoned with RFC 8785 divergences and is banned** — ADR-0001). A clippy `disallowed-methods` lint bans `serde_json::to_vec`/`to_string` on hashed data. |
+| **I2** | **Always JCS-canonicalize before hashing.** No bare `H(json)`; every hash is over RFC 8785 bytes with a domain/version prefix (§4.5). | A single choke point `thoughtmark_core::canon::jcs` — an in-house RFC 8785 encoder (the `std`-only `serde_json_canonicalizer` cannot run in the `no_std` wasm core; it + a pure-TS oracle are differential checks only — **ADR-0001 as amended**; **`serde_jcs` still banned**). A clippy `disallowed-methods` lint bans `serde_json::to_vec`/`to_string` on hashed data. |
 | **I3** | **No ambient nondeterminism in core logic.** No `SystemTime::now`, `Instant::now`, `rand::thread_rng`, `rand::random`. Time and RNG are **injected** through explicit APIs. | `clippy.toml` `disallowed-methods` + `disallowed-types` ban these in `thoughtmark-core`/`-schema` (compile-gate, mirrored in CI). Time enters as `Clock::now() -> UnixMillis`; randomness as `Rng`/`Csprng` traits; signing keys via a `Signer` trait. `verify()` takes no RNG (verification is deterministic) and reads the clock **once** at entry (§10, §11). |
 | **I4** | **No floating point anywhere on the canonicalization / hashing / CID / Merkle path.** (WASM has NaN-bit and signed-zero nondeterminism.) | `f32`/`f64` are in `disallowed-types` for `canon`/`hash`/`cid`/`merkle`. A `validate_no_float(&Value)` walker rejects any JSON `f64` or integer outside the I-JSON safe range **before** canonicalization (§4.3). Decoding params are fixed-point `*_milli: u32`; oversized integers (`UnixMillis`, RNG seeds) are carried as decimal **strings** (§4.3, §5). The TS mirror types `u64` as `bigint`, never `number` (§12, §14). |
 | **I5** | **Store only salted hashes; never store sensitive content; never put content on any chain.** | Content is modeled as `ContentDigest::Hashed { alg, digest_hex }` (a salted commitment, salt held **off-ledger**, §4.7/§9) or `ContentDigest::Cid(Cid)` — the on-ledger types **cannot carry a plaintext body** (§5). `AnchorRequest` carries only a 32-byte root digest — structurally incapable of carrying an artifact body (§8). Raw turn bodies live in Supabase Storage under RLS, crypto-shreddable (§9, §15). |
@@ -488,8 +488,11 @@ Dependency budget (all `default-features = false`, all audited): `serde`, `serde
 
 ## 4.2 JCS canonicalization (`canon/jcs.rs`)
 
-We delegate to `serde_json_canonicalizer` (the maintained RFC 8785 crate; the abandoned `serde_jcs` diverges and
-is banned — ADR-0001). The four RFC 8785 behaviors we depend on and pin in vectors:
+We canonicalize **in-house** in `canon::jcs` (an `alloc` RFC 8785 encoder over `serde_json::Value`): the
+maintained `serde_json_canonicalizer` crate is `std`-only and cannot compile in the `no_std`+`alloc` wasm core, so
+it (and an independent pure-TS oracle) serve as **differential oracles only** — the same pattern as ADR-0005 for
+RFC 6962 (**ADR-0001, as amended**; the abandoned `serde_jcs` is still banned). The four RFC 8785 behaviors we
+depend on and pin in vectors:
 
 - **Key sort** = UTF-16 code units compared as unsigned `u16` — **not** Rust `char`/UTF-8 byte order and **not**
   Unicode code point. Astral-plane keys (U+10000+) diverge because a surrogate pair (0xD800..) sorts *before* a
@@ -2307,7 +2310,7 @@ Each becomes a MADR file in `docs/adr/`. (ADR-0001 is the day-one JCS-crate deci
 
 | ADR | Decision | Rationale (one line) |
 |---|---|---|
-| 0001 | **JCS crate = `serde_json_canonicalizer`; `serde_jcs` banned** | `serde_jcs` is abandoned with RFC 8785 divergences; the canonicalizer choice *is* a byte-format/spec decision (I2). |
+| 0001 | **JCS crate = `serde_json_canonicalizer`; `serde_jcs` banned** *(amended Phase 1: `serde_json_canonicalizer` is std-only → canonicalize in-house in `canon::jcs`, crate is a dev-only differential oracle)* | `serde_jcs` is abandoned with RFC 8785 divergences; the canonicalizer choice *is* a byte-format/spec decision (I2). |
 | 0002 | **One `thoughtmark-core` + separate `thoughtmark-schema`**, not a `-canon`/`-crypto`/`-merkle` split | Audit one trusted unit; modules separate cleanly so a later split is mechanical. |
 | 0003 | **`just` + pnpm scripts, no Turborepo in v1** | `just ci` already orders Cargo→wasm→TS; Turborepo adds misconfigurable surface. |
 | 0004 | **No umbrella meta-crate; explicit per-plugin deps** | Keeps the graph legible for `cargo-deny`/`cargo-vet`; prevents feature-unification leakage into `no_std` core. |

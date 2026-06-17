@@ -18,19 +18,37 @@ std = ["alloc"]
 alloc = []
 # Off by default: gates the one RNG-injecting helper so the audited verify path never links a CSPRNG (arch §3.5).
 keygen = []
-# Off by default: gates FixedClock/SeededRng so production can never reproduce a real salt/key from a test seed.
-vectors = []
+# Off by default: gates FixedClock/SeededRng/VectorCsprng (and their RNG crates) so production can never reproduce
+# a real salt/key from a test seed, and so the wasm/alloc closure never links a CSPRNG (arch §3.5, §10.1).
+vectors = ["dep:rand_chacha", "dep:rand_core"]
 
-# Phase 0: ZERO runtime dependencies. The audited core is its own trust unit; Tier-0/1 deps
-# (serde_json_canonicalizer, blake3, sha2, ed25519-dalek, cid) land with the logic in Phase 1+.
+# Tier-0 runtime deps (Phase 1). All `default-features = false` so the no_std + alloc wasm closure stays clean
+# (no std, no getrandom, no wasm-bindgen). The JCS canonicalizer is implemented IN-HOUSE in `canon::jcs` (the
+# std-only `serde_json_canonicalizer` cannot compile here — it is a dev-only differential oracle instead;
+# ADR-0001 amended). `serde_json` carries `arbitrary_precision` so oversized integers survive the parse and reach
+# `validate_no_float` (arch §4.3).
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+blake3 = { workspace = true }
+sha2 = { workspace = true }
+cid = { workspace = true }
+multihash = { workspace = true }
+thiserror = { workspace = true }
+zeroize = { workspace = true, features = ["derive"] }
+# vectors-only deterministic RNG. `default-features = false` keeps `os_rng`/getrandom OUT of the closure; a seeded
+# ChaCha20 needs no entropy source. Optional + gated so the default/alloc build never links them.
+rand_chacha = { version = "0.9", default-features = false, optional = true }
+rand_core = { version = "0.9", default-features = false, optional = true }
 
-# Wired now; activate as Tier-0 logic lands (Phase 1). proptest: invariants as properties (canonicalize
-# idempotence, hash stability); insta: byte snapshots. Dev-deps are invisible to the dep-direction / wasm32
-# no-leak checks (both use `-e normal`).
+# proptest: Tier-0 invariants as properties (canonicalize idempotence, hash stability, no-float rejection).
+# insta: byte snapshots. serde_json_canonicalizer: the std-only RFC 8785 reference, used ONLY here as a
+# differential oracle against the in-house encoder (ADR-0001). Dev-deps are invisible to the dep-direction /
+# wasm32 no-leak checks (both use `-e normal`).
 [dev-dependencies]
 proptest = "1"
 insta = "1"
+serde_json_canonicalizer = { workspace = true }
 
 [lints]
 workspace = true

@@ -9,20 +9,18 @@
 use thoughtmark_core::ops;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-/// Run a named thoughtmark operation over input bytes, returning canonical output bytes.
-///
-/// In Phase 0 this returns the canonical `NOT_IMPLEMENTED` envelope, byte-identical to the native Rust core, so
-/// the cross-language conformance gate runs against stubs (CORE-1/CORE-2).
+/// Run a named thoughtmark operation over input bytes, returning the operation's canonical output bytes (or the
+/// canonical error envelope). Byte-identical to the native Rust core for every `spec/vectors/` case (CORE-1).
 #[wasm_bindgen]
 #[must_use]
 pub fn run_op(op: &str, input: &[u8]) -> Vec<u8> {
     ops::run_op(op, input)
 }
 
-/// The canonicalization format version, mirrored from the core (placeholder `0` until Phase 1). The conformance
-/// gate asserts this matches the native core's value.
+/// The canonicalization format identifier, mirrored from the core (`"tm-jcs-1"`). Returned as a string so the
+/// version tag stays exact across the boundary.
 #[wasm_bindgen]
 #[must_use]
-pub fn canon_version() -> u32 {
-    0
+pub fn canon_version() -> String {
+    thoughtmark_core::CANON_VERSION.to_owned()
 }

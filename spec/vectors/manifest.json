@@ -1,14 +1,98 @@
 {
-  "corpus_version": "0.0.0",
-  "canon_version": 0,
-  "description": "Phase 0 conformance corpus. Every case's expected output is the canonical NOT_IMPLEMENTED envelope (SPEC.md §4); the gate asserts Rust <-> WASM/TS byte-equality before any real logic lands.",
-  "envelope_not_implemented_b64": "eyJvayI6ZmFsc2UsImVycm9yIjp7ImNvZGUiOiJOT1RfSU1QTEVNRU5URUQifX0=",
-  "vectors": [
-    { "vector_id": "canon-0001",    "op": "canonicalize", "spec_req": "CANON-1", "path": "canon/canon-0001.json" },
-    { "vector_id": "canon-0002",    "op": "canonicalize", "spec_req": "CANON-3", "path": "canon/canon-0002.json" },
-    { "vector_id": "hash-0001",     "op": "hash_blake3",  "spec_req": "HASH-1",  "path": "hash/hash-0001.json" },
-    { "vector_id": "hash-0002",     "op": "hash_sha256",  "spec_req": "HASH-1",  "path": "hash/hash-0002.json" },
-    { "vector_id": "cid-0001",      "op": "cid_v1",       "spec_req": "CID-1",   "path": "cid/cid-0001.json" },
-    { "vector_id": "negative-0001", "op": "unknown_op",   "spec_req": "CORE-2",  "path": "negative/negative-0001.json" }
+  "vectors_version": "0.1.0",
+  "canon_version": "tm-jcs-1",
+  "vector_count": 12,
+  "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
+  "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG).",
+  "cases": [
+    {
+      "id": "canon/0001",
+      "spec_req": "CANON-1",
+      "op": "canonicalize",
+      "input": "canon/0001/input.json",
+      "expected": "canon/0001/expected.bin"
+    },
+    {
+      "id": "canon/0002",
+      "spec_req": "CANON-3",
+      "op": "canonicalize",
+      "input": "canon/0002/input.json",
+      "expected": "canon/0002/expected.bin"
+    },
+    {
+      "id": "canon/0003",
+      "spec_req": "CANON-3",
+      "op": "canonicalize",
+      "input": "canon/0003/input.json",
+      "expected": "canon/0003/expected.bin"
+    },
+    {
+      "id": "hash/0001:blake3",
+      "spec_req": "HASH-1",
+      "op": "hash_blake3",
+      "input": "hash/0001/input.json",
+      "expected": "hash/0001/blake3.hex"
+    },
+    {
+      "id": "hash/0001:sha256",
+      "spec_req": "HASH-1",
+      "op": "hash_sha256",
+      "input": "hash/0001/input.json",
+      "expected": "hash/0001/sha256.hex"
+    },
+    {
+      "id": "cid/0001",
+      "spec_req": "CID-1",
+      "op": "cid_v1",
+      "input": "cid/0001/input.bin",
+      "expected": "cid/0001/expected.txt"
+    },
+    {
+      "id": "domain/0001",
+      "spec_req": "HASH-2",
+      "op": "hash_domain_turn",
+      "input": "domain/0001/input.json",
+      "expected": "domain/0001/expected.hex"
+    },
+    {
+      "id": "negative/0001",
+      "spec_req": "CANON-4",
+      "op": "canonicalize",
+      "input": "negative/0001/input.json",
+      "expect_error": "CANON_NON_DETERMINISTIC_FLOAT",
+      "expected_code": "negative/0001/expected_code.txt"
+    },
+    {
+      "id": "negative/0002",
+      "spec_req": "CANON-4",
+      "op": "canonicalize",
+      "input": "negative/0002/input.json",
+      "expect_error": "CANON_INVALID_JSON",
+      "expected_code": "negative/0002/expected_code.txt"
+    },
+    {
+      "id": "negative/0003",
+      "spec_req": "CANON-4",
+      "op": "canonicalize",
+      "input": "negative/0003/input.json",
+      "expect_error": "CANON_INVALID_JSON",
+      "expected_code": "negative/0003/expected_code.txt"
+    },
+    {
+      "id": "negative/0004",
+      "spec_req": "CANON-1",
+      "op": "canonicalize",
+      "input": "negative/0004/input.json",
+      "expect_error": "CANON_INVALID_JSON",
+      "expected_code": "negative/0004/expected_code.txt"
+    },
+    {
+      "id": "negative/0005",
+      "spec_req": "CANON-4",
+      "op": "canonicalize",
+      "input": "negative/0005/input.json",
+      "expect_error": "CANON_INTEGER_OUT_OF_RANGE",
+      "expected_code": "negative/0005/expected_code.txt"
+    }
   ]
 }

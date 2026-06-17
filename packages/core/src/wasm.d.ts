@@ -8,5 +8,5 @@ declare module "*thoughtmark_wasm.js" {
   }
   export default function init(opts?: InitOpts | BufferSource | URL): Promise<unknown>;
   export function run_op(op: string, input: Uint8Array): Uint8Array;
-  export function canon_version(): number;
+  export function canon_version(): string;
 }

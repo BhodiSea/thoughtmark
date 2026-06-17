@@ -28,5 +28,10 @@
     "test:wasm": "node -e \"console.log('wasm-bindgen-test runs via cargo (Node runner) in just ci-wasm; browser matrix in CI')\"",
     "publint": "publint",
     "attw": "attw --pack . --profile esm-only"
+  },
+  "devDependencies": {
+    "@noble/hashes": "^1.4.0",
+    "canonicalize": "^2.0.0",
+    "multiformats": "^13.3.0"
   }
 }

@@ -29,15 +29,17 @@ Output byte-identity is the master requirement:
 
 - **CORE-1** — For identical logical input, every implementation (Rust core, WASM, TypeScript) **MUST** produce
   byte-identical output. The `spec/vectors/` corpus is the oracle.
-- **CORE-2** — An operation that is not yet implemented **MUST** return the canonical `NOT_IMPLEMENTED` error
-  envelope (Section 4), byte-identically across implementations.
+- **CORE-2** — An operation that fails **MUST** return the canonical error envelope (Section 4) carrying a stable
+  `ErrorCode`, byte-identically across implementations (fail-closed).
 
 ### 3.1 Canonicalization (CANON)
 
 - **CANON-1** — JSON intended for hashing **MUST** be canonicalized per RFC 8785 (JCS) before hashing; bare
   `H(json)` is forbidden.
-- **CANON-2** — Canonicalization **MUST** be performed by the single choke point (`serde_json_canonicalizer`);
-  `serde_jcs` **MUST NOT** be used (ADR-0001).
+- **CANON-2** — Canonicalization **MUST** be performed by the single choke point
+  (`thoughtmark_core::canon::jcs`, an in-house RFC 8785 encoder — the `std`-only `serde_json_canonicalizer` cannot
+  run in the `no_std` WASM core). `serde_jcs` **MUST NOT** be used. `serde_json_canonicalizer` and an independent
+  pure-TS oracle serve as differential checks only (ADR-0001, as amended).
 - **CANON-3** — Object members **MUST** be ordered by UTF-16 code unit of the member name, per RFC 8785.
 - **CANON-4** — Floating-point numbers **MUST NOT** appear on the canonicalization path; integers outside the
   I-JSON safe range **MUST** be carried as decimal strings.
@@ -60,18 +62,20 @@ Output byte-identity is the master requirement:
 
 - **LOG-1** — Merkle tree hashing **MUST** follow RFC 6962 leaf/node domain separation. *(No vectors until Phase 2.)*
 
-## 4. The `NOT_IMPLEMENTED` envelope (Phase 0)
+## 4. The error envelope
 
-Until an operation is implemented it **MUST** return exactly these bytes (UTF-8, no trailing newline, members in
-the order shown):
+On failure, an operation **MUST** return exactly these bytes (UTF-8, no trailing newline, members in the order
+shown), where `<CODE>` is a stable SCREAMING_SNAKE_CASE `ErrorCode`:
 
 ```
-{"ok":false,"error":{"code":"NOT_IMPLEMENTED"}}
+{"ok":false,"error":{"code":"<CODE>"}}
 ```
 
-This makes the cross-language byte-identity gate (CORE-1/CORE-2) real against stub implementations: each
-implementation independently produces these bytes and the conformance runner asserts equality against the
-vector's `expected_bytes_b64`.
+The Tier-0 codes are `CANON_INVALID_JSON`, `CANON_NON_DETERMINISTIC_FLOAT`, `CANON_INTEGER_OUT_OF_RANGE`,
+`UNKNOWN_CANON_VERSION`, `UNKNOWN_HASH_ALG`, `DIGEST_MISMATCH`, `CID_MALFORMED`, and `INTERNAL` (the catch-all for
+an internal invariant; it never carries record or secret data). Codes are **append-only**; each token is normative
+and appears in the negative `spec/vectors/` cases. Negative vectors assert that both engines return the same code,
+fail-closed (CORE-2).
 
 [RFC 2119]: https://www.rfc-editor.org/info/rfc2119
 [RFC 8174]: https://www.rfc-editor.org/info/rfc8174
