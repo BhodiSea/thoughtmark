@@ -1,4 +1,5 @@
-# Secret scanning (row 21) — complements GitHub push protection (enabled via BOOTSTRAP.md).
+# Secret scanning local mirror (row 21) — complements GitHub-native secret scanning + push protection
+# (the authoritative control, enabled on the repo). Pinned gitleaks binary for reliability. SHA-pinned actions.
 name: gitleaks
 on:
   push: {}
@@ -8,6 +9,8 @@ permissions:
 jobs:
   gitleaks:
     runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.28.0
     steps:
       - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
@@ -16,4 +19,9 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+      - name: Install and run gitleaks
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tgz
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks detect --source . --redact --no-banner --exit-code 1
