@@ -56,6 +56,22 @@ impl HashAlg {
     }
 }
 
+impl serde::Serialize for HashAlg {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HashAlg {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        // Fail-closed: an unknown token carries the stable `UNKNOWN_HASH_ALG` code in the serde error.
+        let token = <&str as serde::Deserialize>::deserialize(deserializer)?;
+        HashAlg::from_token(token).ok_or_else(|| {
+            serde::de::Error::custom(crate::error::ErrorCode::UnknownHashAlg.as_str())
+        })
+    }
+}
+
 /// A 32-byte content digest tagged with the algorithm that produced it. `Copy`, no allocation.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Digest {

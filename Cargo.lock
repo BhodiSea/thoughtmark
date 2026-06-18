@@ -728,12 +728,18 @@ dependencies = [
  "serde_json_canonicalizer",
  "sha2",
  "thiserror",
+ "thoughtmark-schema",
  "zeroize",
 ]
 
 [[package]]
 name = "thoughtmark-schema"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thoughtmark-core",
+]
 
 [[package]]
 name = "thoughtmark-schemagen"

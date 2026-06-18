@@ -37,6 +37,7 @@ fn dispatch(op: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
         "hash_domain_turn" => hash_domain_json(canon::domain::TURN, input),
         "hash_domain_object" => hash_domain_json(canon::domain::OBJECT, input),
         "hash_domain_manifest" => hash_domain_json(canon::domain::MANIFEST, input),
+        "trail_root" => trail_root_json(input),
         _ => Err(Error::internal("ops.unknown_op")),
     }
 }
@@ -58,6 +59,24 @@ fn hash_domain_json(domain: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(canon::hash_domain(HashAlg::Blake3, domain, &canonical)
         .to_hex()
         .into_bytes())
+}
+
+/// The `trail_root` derivation (SCHEMA-3): canonicalize the trail JSON, then emit the dual digest map
+/// `{"blake3":hex,"sha256":hex}` (both over the SAME canonical bytes, in the `OBJECT` domain). The output is
+/// already JCS-canonical (`"blake3"` < `"sha256"`), byte-identical to canonicalizing the schema's
+/// `trail_root` `BTreeMap`. This is the one schema-derivation op that needs both hash algorithms, so it cannot
+/// reuse `hash_domain_*`; it stays raw-JSON so `core::ops` never depends on `thoughtmark-schema`.
+fn trail_root_json(input: &[u8]) -> Result<Vec<u8>, Error> {
+    let canonical = canon::canonicalize_str(as_str(input)?)?;
+    let blake3 = canon::hash_domain(HashAlg::Blake3, canon::domain::OBJECT, &canonical).to_hex();
+    let sha256 = canon::hash_domain(HashAlg::Sha256, canon::domain::OBJECT, &canonical).to_hex();
+    let mut out = Vec::new();
+    out.extend_from_slice(b"{\"blake3\":\"");
+    out.extend_from_slice(blake3.as_bytes());
+    out.extend_from_slice(b"\",\"sha256\":\"");
+    out.extend_from_slice(sha256.as_bytes());
+    out.extend_from_slice(b"\"}");
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -101,5 +120,19 @@ mod tests {
     fn unknown_op_is_internal() {
         let out = run_op("frobnicate", b"");
         assert_eq!(out, br#"{"ok":false,"error":{"code":"INTERNAL"}}"#);
+    }
+
+    #[test]
+    fn trail_root_is_canonical_dual_digest_map() {
+        // {"blake3":"<64hex>","sha256":"<64hex>"} = 11 + 64 + 12 + 64 + 2 = 153 bytes, keys already JCS-sorted.
+        let out = run_op("trail_root", br#"{"b":1,"a":2}"#);
+        assert_eq!(out.len(), 153);
+        assert!(out.starts_with(br#"{"blake3":""#));
+        assert!(out.ends_with(br#""}"#));
+        // The blake3 half must equal the standalone hash_domain_object op (same OBJECT-domain preimage).
+        let b3 = run_op("hash_domain_object", br#"{"b":1,"a":2}"#);
+        let mut prefix = Vec::from(&b"{\"blake3\":\""[..]);
+        prefix.extend_from_slice(&b3);
+        assert!(out.starts_with(&prefix));
     }
 }

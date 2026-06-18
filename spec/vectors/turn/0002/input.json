@@ -1,0 +1,62 @@
+{
+  "schema_version": { "major": 1, "minor": 0, "patch": 0 },
+  "canon_version": "tm-jcs-1",
+  "sequence": 1,
+  "role": "ai",
+  "content": [
+    {
+      "kind": "content",
+      "media_type": "text/markdown",
+      "body": {
+        "kind": "hashed",
+        "alg": "blake3",
+        "digest_hex": "61b90e27702527bf82aafb93a3c5a7824e4e7bdbd1632fd73b9a3085f420e20d"
+      }
+    },
+    {
+      "kind": "content",
+      "media_type": "image/png",
+      "body": {
+        "kind": "cid",
+        "cid": "bafkr4ideg6z2yocgkez77nr3outtvdnvjdcvqrs5phnqh7jvtrwnlpm5qu"
+      }
+    },
+    {
+      "kind": "tool_call",
+      "tool": { "name": "pubmed_search", "version": "2.1.0" },
+      "args_digest": {
+        "alg": "blake3",
+        "bytes_hex": "7dc59c511ea07b82dac42045eac29cca51b634a1010672ff2a21bc1042ed36b7"
+      },
+      "result_digest": {
+        "alg": "blake3",
+        "bytes_hex": "5397ec89e471e048ae207e8b71abb434d8dffbb7e3999000243690ee3edb34a1"
+      }
+    }
+  ],
+  "parents": [
+    {
+      "alg": "blake3",
+      "bytes_hex": "ac3605467600952700314b3d3d18cc6605008dede81cd97ddab2961518f151da"
+    }
+  ],
+  "run_manifest_ref": {
+    "alg": "blake3",
+    "bytes_hex": "1eab656080f719d10ac8dd2a04e77b6bc1cb77d465fb5008b63ae7678a99f8fd"
+  },
+  "ledger": {
+    "entries": [
+      {
+        "action": "propose",
+        "attributed_to": { "id": "did:web:models.example:agents:claude" },
+        "attested_at": "1750000005000"
+      },
+      {
+        "action": "approve",
+        "attributed_to": { "id": "did:key:z6MkInvestigator" },
+        "attested_at": "1750000060000",
+        "approval_scope": "endorsed"
+      }
+    ]
+  }
+}

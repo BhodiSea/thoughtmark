@@ -1,7 +1,7 @@
 {
-  "vectors_version": "0.1.0",
+  "vectors_version": "0.2.0",
   "canon_version": "tm-jcs-1",
-  "vector_count": 15,
+  "vector_count": 22,
   "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
   "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG).",
   "cases": [
@@ -76,6 +76,41 @@
       "expected": "domain/0003/expected.hex"
     },
     {
+      "id": "turn/0001",
+      "spec_req": "SCHEMA-2",
+      "op": "hash_domain_turn",
+      "input": "turn/0001/input.json",
+      "expected": "turn/0001/turn_id.hex"
+    },
+    {
+      "id": "turn/0002",
+      "spec_req": "SCHEMA-2",
+      "op": "hash_domain_turn",
+      "input": "turn/0002/input.json",
+      "expected": "turn/0002/turn_id.hex"
+    },
+    {
+      "id": "manifest/0001",
+      "spec_req": "SCHEMA-2",
+      "op": "hash_domain_manifest",
+      "input": "manifest/0001/input.json",
+      "expected": "manifest/0001/manifest_id.hex"
+    },
+    {
+      "id": "trail/0001",
+      "spec_req": "SCHEMA-3",
+      "op": "trail_root",
+      "input": "trail/0001/input.json",
+      "expected": "trail/0001/trail_root.json"
+    },
+    {
+      "id": "statement/0001",
+      "spec_req": "SCHEMA-4",
+      "op": "canonicalize",
+      "input": "statement/0001/input.json",
+      "expected": "statement/0001/expected.bin"
+    },
+    {
       "id": "negative/0001",
       "spec_req": "CANON-4",
       "op": "canonicalize",
@@ -114,6 +149,22 @@
       "input": "negative/0005/input.json",
       "expect_error": "CANON_INTEGER_OUT_OF_RANGE",
       "expected_code": "negative/0005/expected_code.txt"
+    },
+    {
+      "id": "negative/0006",
+      "spec_req": "SCHEMA-1",
+      "op": "canonicalize",
+      "input": "negative/0006/input.json",
+      "expect_error": "CANON_NON_DETERMINISTIC_FLOAT",
+      "expected_code": "negative/0006/expected_code.txt"
+    },
+    {
+      "id": "negative/0007",
+      "spec_req": "SCHEMA-1",
+      "op": "canonicalize",
+      "input": "negative/0007/input.json",
+      "expect_error": "CANON_INTEGER_OUT_OF_RANGE",
+      "expected_code": "negative/0007/expected_code.txt"
     }
   ]
 }

@@ -1,0 +1,14 @@
+{
+  "canon_version": "tm-jcs-1",
+  "provider": "anthropic",
+  "model_id": "claude-opus-4-8",
+  "model_self_reported_version": "claude-opus-4-8-20260601",
+  "decoding": { "temperature_milli": 200, "top_p_milli": 950, "max_output_tokens": 1024 },
+  "system_prompt_digest": {
+    "alg": "blake3",
+    "bytes_hex": "59e8b36621a2bb90704863b028f9bcc49aa083354bad1786bbd121f2193cd72a"
+  },
+  "tools": [{ "name": "pubmed_search", "version": "2.1.0" }],
+  "context_window": 200000,
+  "seed": "184467440737095516"
+}

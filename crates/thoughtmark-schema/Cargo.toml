@@ -14,13 +14,19 @@ description = "Reasoning-trail wire types for thoughtmark (no_std + alloc). Sepa
 
 [features]
 default = ["std"]
-std = ["alloc"]
-alloc = []
+std = ["alloc", "thoughtmark-core/std"]
+alloc = ["thoughtmark-core/alloc"]
 # Off by default; only thoughtmark-schemagen enables it, so production/wasm builds never carry schemars (arch §3.5).
 json_schema = []
 
-# Phase 0: ZERO dependencies. serde wire structs (Trail/Turn/ContentPart/…) land in Phase 1.
+# Phase 2: the reasoning-trail wire types. `thoughtmark-schema` depends INWARD on `thoughtmark-core` (the
+# dependency-direction invariant, I8) so it can embed the audited wire scalars — `Digest`, `HashAlg`, `UnixMillis`
+# — and reuse the single `canon::jcs` choke point for the `turn_id`/`trail_root` derivations. It adds no hashing of
+# its own. `serde_json` is only for the off-ledger, never-hashed `export_prov` output (a `Value`).
 [dependencies]
+thoughtmark-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

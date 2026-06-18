@@ -29,6 +29,8 @@ const enc = new TextEncoder();
 const TURN_PREFIX = enc.encode("tm-jcs-1:blake3:thoughtmark.turn:");
 const OBJECT_PREFIX = enc.encode("tm-jcs-1:blake3:thoughtmark.object:");
 const MANIFEST_PREFIX = enc.encode("tm-jcs-1:blake3:thoughtmark.manifest:");
+// trail_root hashes the OBJECT domain with BOTH algorithms; SHA-256 uses its own alg-tagged prefix.
+const OBJECT_PREFIX_SHA256 = enc.encode("tm-jcs-1:sha256:thoughtmark.object:");
 
 interface Case {
   id: string;
@@ -284,6 +286,11 @@ describe("independent pure-TS oracle (cyberphone + noble + multiformats)", () =>
         const digest = createMultihash(BLAKE3_MULTIHASH_CODE, blake3(new Uint8Array(input)));
         const cid = CID.create(1, raw.code, digest);
         expect(cid.toString(base32), c.id).toBe(expected);
+      } else if (c.op === "trail_root") {
+        const canon = canonicalizeOracle(input);
+        const b3 = bytesToHex(blake3(concatBytes(OBJECT_PREFIX, canon)));
+        const s2 = bytesToHex(sha256(concatBytes(OBJECT_PREFIX_SHA256, canon)));
+        expect(`{"blake3":"${b3}","sha256":"${s2}"}`, c.id).toBe(expected);
       } else {
         throw new Error(`${c.id}: oracle does not know op ${c.op}`);
       }

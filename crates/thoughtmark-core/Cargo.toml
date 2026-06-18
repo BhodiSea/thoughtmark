@@ -49,6 +49,11 @@ rand_core = { version = "0.9", default-features = false, optional = true }
 proptest = "1"
 insta = "1"
 serde_json_canonicalizer = { workspace = true }
+# The §5.12 schema determinism invariants (turn_id stability, trail_root tamper-sensitivity, export_prov purity)
+# live here as a core integration test: they need both the schema wire types and core's hashing, and core already
+# hosts the proptest dev-tooling. A dev-dependency on schema does NOT enter core's `-e normal` closure, so the
+# dependency-direction invariant (I8) is untouched.
+thoughtmark-schema = { workspace = true }
 
 [lints]
 workspace = true
