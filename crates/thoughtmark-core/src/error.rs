@@ -1,75 +1,137 @@
 // SPDX-License-Identifier: Apache-2.0
-//! Stable, content-free error model.
+//! The crate-wide flat error model (arch §10.2).
 //!
-//! Error *codes* are part of the conformance contract: their wire strings ([`ErrorCode::as_str`]) appear in the
-//! canonical envelope and MUST NOT change once shipped (changing one is a breaking spec change). The error type
-//! carries no record content (I5/I7).
+//! One [`ErrorCode`] (the stable, serializable wire token) and one [`Error`] (a content-free, `#[non_exhaustive]`
+//! enum whose `Display` strings are constant — no record bytes, no secret material, no oracle for an attacker).
+//! "Impossible" cases return [`Error::Internal`] carrying a `'static` site tag rather than panicking, because a
+//! Rust panic crossing the WASM boundary becomes an uncatchable `RuntimeError` (arch §2.3).
+//!
+//! Codes are **append-only**: the SCREAMING_SNAKE_CASE wire token of each is normative (it appears in the
+//! conformance envelope and in negative vectors), so renaming or repurposing one is a breaking spec change.
 
-use core::fmt;
+use crate::canon::error::CanonError;
 
-/// A stable, content-free error code.
+/// A stable, content-free, serializable error code.
 ///
-/// Variants are append-only. The string form of each code is normative (it appears in the conformance envelope),
-/// so renaming or repurposing a code is a breaking spec change.
+/// `#[non_exhaustive]` and append-only. Serialized as SCREAMING_SNAKE_CASE (e.g. `CANON_NON_DETERMINISTIC_FLOAT`);
+/// [`ErrorCode::as_str`] returns the identical token without invoking serde so the envelope stays alloc/panic
+/// clean (a unit test pins `as_str` == the serde token). Tier-1 codes are appended as their tiers land.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ErrorCode {
-    /// The operation is not yet implemented (the Phase 0 stub state).
-    NotImplemented,
-    /// An internal invariant was violated. Carries a `'static`, content-free reason instead of panicking — a
-    /// Rust panic crossing the WASM boundary becomes an uncatchable `RuntimeError` (arch §2.3).
-    Internal(&'static str),
+    /// Input was not well-formed I-JSON (syntax, non-UTF-8, or a duplicate object key).
+    CanonInvalidJson,
+    /// A JSON number was a float / had an exponent — forbidden on the hashed path (I4).
+    CanonNonDeterministicFloat,
+    /// A JSON integer fell outside the I-JSON safe range `[-(2^53 - 1), 2^53 - 1]`.
+    CanonIntegerOutOfRange,
+    /// A canonicalization-version tag was not understood by this build; fail closed.
+    UnknownCanonVersion,
+    /// A hash-algorithm token was not `"blake3"` or `"sha256"`.
+    UnknownHashAlg,
+    /// A recomputed digest did not match an expected digest.
+    DigestMismatch,
+    /// A CID was malformed, or a parsed CID failed the pinned-length check.
+    CidMalformed,
+    /// An internal invariant was violated (a static, content-free site tag, never runtime/secret data).
+    Internal,
 }
 
 impl ErrorCode {
-    /// The stable wire string for this code, as used in the conformance envelope.
+    /// The stable wire token for this code — byte-identical to its serde SCREAMING_SNAKE_CASE form.
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            ErrorCode::NotImplemented => "NOT_IMPLEMENTED",
-            ErrorCode::Internal(_) => "INTERNAL",
+            ErrorCode::CanonInvalidJson => "CANON_INVALID_JSON",
+            ErrorCode::CanonNonDeterministicFloat => "CANON_NON_DETERMINISTIC_FLOAT",
+            ErrorCode::CanonIntegerOutOfRange => "CANON_INTEGER_OUT_OF_RANGE",
+            ErrorCode::UnknownCanonVersion => "UNKNOWN_CANON_VERSION",
+            ErrorCode::UnknownHashAlg => "UNKNOWN_HASH_ALG",
+            ErrorCode::DigestMismatch => "DIGEST_MISMATCH",
+            ErrorCode::CidMalformed => "CID_MALFORMED",
+            ErrorCode::Internal => "INTERNAL",
         }
     }
 }
 
-impl fmt::Display for ErrorCode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl core::fmt::Display for ErrorCode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(self.as_str())
     }
 }
 
-/// The library error type. Content-free by construction (I5/I7).
+/// The library error type. Content-free by construction (I5/I7); `Display` is a constant per variant.
+///
+/// `#[non_exhaustive]` and append-only. Crypto/canon failures collapse to a single `Display` string,
+/// distinguishable only by [`Error::code`] — no error message ever discriminates *why* a verification failed.
 #[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Error {
-    /// The stable error code.
-    pub code: ErrorCode,
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+    /// Canonicalization, no-float, hash-alg, or version failure (the carried code says which).
+    #[error("canonicalization failed")]
+    Canon(ErrorCode),
+    /// A digest comparison failed.
+    #[error("digest mismatch")]
+    Digest(ErrorCode),
+    /// A CID was malformed.
+    #[error("cid malformed")]
+    Cid(ErrorCode),
+    /// An internal invariant was violated; the `'static` tag is a code site, never runtime/secret data.
+    #[error("internal invariant violated")]
+    Internal(&'static str),
 }
 
 impl Error {
-    /// Construct an error from a [`ErrorCode`].
+    /// The stable [`ErrorCode`] for this error (the token that reaches the wire).
     #[must_use]
-    pub const fn new(code: ErrorCode) -> Self {
-        Self { code }
+    pub const fn code(&self) -> ErrorCode {
+        match self {
+            Error::Canon(c) | Error::Digest(c) | Error::Cid(c) => *c,
+            Error::Internal(_) => ErrorCode::Internal,
+        }
     }
 
-    /// The not-implemented error (the Phase 0 stub state).
+    /// The constant, content-free message for this error.
     #[must_use]
-    pub const fn not_implemented() -> Self {
-        Self::new(ErrorCode::NotImplemented)
+    pub const fn static_message(&self) -> &'static str {
+        match self {
+            Error::Canon(_) => "canonicalization failed",
+            Error::Digest(_) => "digest mismatch",
+            Error::Cid(_) => "cid malformed",
+            Error::Internal(tag) => tag,
+        }
     }
 
-    /// An internal-invariant error carrying a `'static`, content-free reason.
+    /// Shorthand for an internal-invariant error carrying a `'static` site tag.
     #[must_use]
-    pub const fn internal(reason: &'static str) -> Self {
-        Self::new(ErrorCode::Internal(reason))
+    pub const fn internal(tag: &'static str) -> Self {
+        Error::Internal(tag)
     }
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.code.fmt(f)
+/// The crate result alias.
+pub type Result<T> = core::result::Result<T, Error>;
+
+impl From<CanonError> for ErrorCode {
+    fn from(e: CanonError) -> Self {
+        match e {
+            CanonError::InvalidJson | CanonError::DuplicateKey => ErrorCode::CanonInvalidJson,
+            CanonError::FloatNotAllowed => ErrorCode::CanonNonDeterministicFloat,
+            CanonError::IntegerOutOfRange => ErrorCode::CanonIntegerOutOfRange,
+            CanonError::UnknownCanonVersion => ErrorCode::UnknownCanonVersion,
+            CanonError::UnknownHashAlg => ErrorCode::UnknownHashAlg,
+            CanonError::Cid | CanonError::Multihash => ErrorCode::CidMalformed,
+        }
     }
 }
 
-impl core::error::Error for Error {}
+impl From<CanonError> for Error {
+    fn from(e: CanonError) -> Self {
+        let code = ErrorCode::from(e);
+        match e {
+            CanonError::Cid | CanonError::Multihash => Error::Cid(code),
+            _ => Error::Canon(code),
+        }
+    }
+}

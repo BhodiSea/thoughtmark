@@ -1,9 +1,0 @@
-{
-  "vector_id": "cid-0001",
-  "spec_req": "CID-1",
-  "canon_version": 0,
-  "op": "cid_v1",
-  "input": {"bytes":"YWJj"},
-  "expected_status": "not_implemented",
-  "expected_bytes_b64": "eyJvayI6ZmFsc2UsImVycm9yIjp7ImNvZGUiOiJOT1RfSU1QTEVNRU5URUQifX0="
-}

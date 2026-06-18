@@ -416,10 +416,12 @@ standardization. The spec and the conformance suite are first-class deliverables
   from silently drifting away from `SPEC.md`.
 
 - **ADRs in MADR format (`docs/adr/`)** `[MUST]` — Record load-bearing decisions, including a **day-one ADR
-  pinning the JCS crate**. *2026 (correction):* **`serde_jcs` is abandoned and has known RFC 8785 divergences** —
-  use the maintained **`serde_json_canonicalizer`** (evik42, updated Feb 2026), with version pinned and behavior
-  locked by the conformance vectors. *Why:* for a byte-identical-hash library the canonicalizer choice *is* a
-  spec/reproducibility decision and must be recorded and justified.
+  pinning the JCS approach**. *2026 (correction):* **`serde_jcs` is abandoned and has known RFC 8785 divergences**.
+  *Phase-1 outcome (ADR-0001 amended, `docs/adr/0001-jcs-crate.md`):* `serde_json_canonicalizer` is `std`-only and
+  cannot compile in the `no_std`+`alloc` wasm core, so JCS is implemented **in-house** in `thoughtmark_core::canon::jcs`
+  (compiled identically on native + wasm → I1 by construction); `serde_json_canonicalizer` and the pure-TS
+  `cyberphone/canonicalize` are retained as **dev-only differential oracles**. *Why:* for a byte-identical-hash
+  library the canonicalizer choice *is* a spec/reproducibility decision and must be recorded and justified.
 
 - **Docs site: rustdoc + mdBook** `[REC]` — `#![deny(missing_docs)]` for the API; **mdBook** (idiomatic for Rust;
   prefer it over mkdocs-material) for the guide/spec. The eventual Internet-Draft is authored later in
@@ -460,7 +462,8 @@ License: Apache-2.0. This code is authored almost entirely by Claude Code. CI is
 
 ## Invariants (NEVER violate)
 - Outputs MUST be byte-identical across the Rust core, WASM, and TS. The `spec/vectors/` corpus is the oracle.
-- ALWAYS canonicalize JSON via RFC 8785 JCS (`serde_json_canonicalizer`) before hashing.
+- ALWAYS canonicalize JSON via RFC 8785 JCS before hashing, through the single in-house choke point
+  `thoughtmark_core::canon::jcs` (ADR-0001 amended: `serde_json_canonicalizer` is a dev-only oracle, not the impl).
 - NO ambient nondeterminism in core logic: no `SystemTime::now`, `Instant::now`, `thread_rng`. Inject time/RNG.
 - NO floating point anywhere in the canonicalization / hashing / CID path.
 - Store only salted hashes; NEVER store sensitive content or put content on any chain.
@@ -558,7 +561,8 @@ paths:
   - "src/**/hash*.rs"
 ---
 # Crypto & canonicalization invariants
-- Canonicalize via `serde_json_canonicalizer` (RFC 8785) before any hash. Never re-implement JCS.
+- Canonicalize via the single in-house RFC 8785 choke point `thoughtmark_core::canon::jcs` before any hash
+  (ADR-0001 amended: `serde_json_canonicalizer` is `std`-only → dev-only differential oracle, not the impl).
 - BLAKE3 (`blake3`) is the internal default; SHA-256 (`sha2`) for interop. Both must be in the vectors.
 - Ed25519 via `ed25519_dalek`, verification ALWAYS `verify_strict`.
 - No floats; no `SystemTime`/`thread_rng`. Wrap secrets in `secrecy::Secret`, wipe with `zeroize`.

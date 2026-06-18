@@ -35,6 +35,7 @@ ci-rust:
     typos
     cargo clippy --all-targets --all-features --locked -- -D warnings
     cargo nextest run --all-features --locked
+    cargo run -q -p thoughtmark-cli --bin tm -- bless --check spec/vectors
     cargo deny check
     cargo audit
     ./scripts/check-dep-direction.sh
@@ -70,6 +71,23 @@ ci-docs:
     if command -v reuse >/dev/null 2>&1; then reuse lint; else echo "note: reuse not installed (pipx install reuse)"; fi
 
 # --- convenience ---
+
+# Regenerate the conformance corpus's expected files from the native Rust oracle. DELIBERATE: blessing changes the
+# frozen oracle, so any changed expected byte is a BREAKING corpus release (bump spec/vectors/VERSION + CHANGELOG).
+bless:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+    cargo run -q -p thoughtmark-cli --bin tm -- bless spec/vectors
+    echo "blessed. REVIEW the diff: a changed expected byte is a breaking corpus release."
+
+# Assert the committed corpus still matches the native Rust oracle (also runs inside ci-rust).
+bless-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+    cargo run -q -p thoughtmark-cli --bin tm -- bless --check spec/vectors
+
 fmt:
     #!/usr/bin/env bash
     set -euo pipefail

@@ -24,14 +24,29 @@ fn rust_core_is_byte_identical_to_corpus() {
         "corpus is empty — the conformance gate would be vacuous (it must have teeth from the first PR)"
     );
 
+    // Cross-language count parity (R13): every executor expands the manifest to the same number of cases.
+    let expected_count = tk::expected_vector_count().expect("manifest vector_count");
+    assert_eq!(
+        vectors.len(),
+        expected_count,
+        "loaded {} cases but manifest declares vector_count={expected_count}",
+        vectors.len()
+    );
+
+    let mut failures = Vec::new();
     for vector in &vectors {
-        let actual = tk::run(vector);
-        assert_eq!(
-            actual, vector.expected_bytes,
-            "vector {} (spec_req {}, op {}): native Rust output != expected bytes",
-            vector.vector_id, vector.spec_req, vector.op
-        );
+        if let Err(msg) = tk::run(vector) {
+            failures.push(format!(
+                "vector {} (spec_req {}): {msg}",
+                vector.id, vector.spec_req
+            ));
+        }
     }
+    assert!(
+        failures.is_empty(),
+        "native Rust conformance failures:\n{}",
+        failures.join("\n")
+    );
 
     // Emit the count so the Node executor can assert it saw the SAME number of vectors (R13).
     println!("THOUGHTMARK_CONFORMANCE_COUNT={}", vectors.len());

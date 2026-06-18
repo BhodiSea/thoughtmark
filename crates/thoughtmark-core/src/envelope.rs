@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-//! The canonical conformance error envelope (SPEC.md §4).
+//! The canonical error envelope.
 //!
 //! Hand-encoded (not via `serde_json`) so it builds under `no_std` + `alloc` without pulling a JSON serializer
-//! onto the WASM path, and so the produced bytes are unambiguous and float-free (I4). The envelope is the
-//! Phase-0 stand-in for real output: each implementation independently produces these bytes, and the
-//! conformance runner asserts byte-equality across Rust ⟷ WASM/TS (CORE-1/CORE-2).
+//! onto the WASM path, and so the produced bytes are unambiguous and float-free (I4). On error, [`crate::ops`]
+//! returns these bytes; the SCREAMING_SNAKE_CASE code embedded here is the token negative vectors assert on, and
+//! it is byte-identical across Rust, WASM, and the pure-TS executors.
 
 use crate::error::ErrorCode;
 use alloc::vec::Vec;
@@ -25,8 +25,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn not_implemented_envelope_is_exact() {
-        let bytes = error_envelope(ErrorCode::NotImplemented);
-        assert_eq!(bytes, br#"{"ok":false,"error":{"code":"NOT_IMPLEMENTED"}}"#);
+    fn float_envelope_is_exact() {
+        let bytes = error_envelope(ErrorCode::CanonNonDeterministicFloat);
+        assert_eq!(
+            bytes,
+            br#"{"ok":false,"error":{"code":"CANON_NON_DETERMINISTIC_FLOAT"}}"#
+        );
     }
 }

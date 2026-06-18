@@ -8,8 +8,12 @@ paths:
   - "crates/**/dsse*.rs"
   - "crates/**/sign*.rs"
 ---
+
 # Crypto & canonicalization invariants
-- Canonicalize via `serde_json_canonicalizer` (RFC 8785) before any hash. Never re-implement JCS. `serde_jcs` is BANNED (ADR-0001).
+
+- Canonicalize via the single in-house RFC 8785 choke point `thoughtmark_core::canon::jcs` before any hash
+  (ADR-0001 amended: `serde_json_canonicalizer` is `std`-only → dev-only differential oracle, not the impl).
+  `serde_jcs` is BANNED (ADR-0001).
 - BLAKE3 (`blake3`) is the internal default; SHA-256 (`sha2`) for interop. Both must be in the vectors.
 - Ed25519 via `ed25519_dalek`, verification ALWAYS `verify_strict` (never bare `verify`).
 - No floats; no `SystemTime`/`thread_rng`. Wrap secrets in `secrecy::Secret`, wipe with `zeroize`, compare with `subtle`.

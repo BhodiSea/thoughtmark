@@ -1,62 +1,105 @@
 // SPDX-License-Identifier: Apache-2.0
-//! Tier-0 / Tier-1 operations.
+//! The string-dispatched operation entry point (the single cross-language seam).
 //!
-//! Every operation here is a Phase-0 **stub** returning [`Error::not_implemented`]. [`run_op`] is the
-//! string-dispatched entry point shared by the native conformance runner and the WASM binding: it maps any
-//! result (today, always not-implemented) to the canonical envelope bytes, so the cross-language byte-identity
-//! gate (CORE-1/CORE-2) is exercised before real logic lands in Phase 1.
+//! [`run_op`] is shared byte-for-byte by the native conformance runner and the WASM binding. Each op is a pure
+//! `bytes -> bytes` function: on success it returns the operation's canonical output bytes; on error it returns
+//! the canonical error envelope ([`crate::envelope::error_envelope`]) carrying the stable [`ErrorCode`] token.
+//! Keeping every op expressible as `bytes -> bytes` is what lets the WASM/TS boundary carry only `Uint8Array`.
+//!
+//! Output encodings: `canonicalize` → raw JCS bytes; `hash_blake3`/`hash_sha256` → 64 lowercase hex bytes of
+//! `hash(canonicalize(input))` (canonicalize-then-hash, exercising I2); `cid_v1` → the base32-lower CID string of
+//! the RAW blob; `hash_domain_*` → 64 hex bytes of the domain-separated hash (binding `CANON_VERSION` into the
+//! preimage).
 
+use crate::canon::{self, HashAlg};
 use crate::envelope::error_envelope;
-use crate::error::Error;
+use crate::error::{Error, ErrorCode};
 use alloc::vec::Vec;
 
-/// Canonicalize a JSON document to RFC 8785 (JCS) bytes (CANON-1). **Stub.**
-///
-/// # Errors
-/// Returns [`crate::ErrorCode::NotImplemented`] until Phase 1.
-pub fn canonicalize(_input: &[u8]) -> Result<Vec<u8>, Error> {
-    Err(Error::not_implemented())
-}
-
-/// Compute the BLAKE3 digest of JCS bytes (HASH-1/HASH-2). **Stub.**
-///
-/// # Errors
-/// Returns [`crate::ErrorCode::NotImplemented`] until Phase 1.
-pub fn hash_blake3(_input: &[u8]) -> Result<Vec<u8>, Error> {
-    Err(Error::not_implemented())
-}
-
-/// Compute the SHA-256 digest of JCS bytes (HASH-1/HASH-2). **Stub.**
-///
-/// # Errors
-/// Returns [`crate::ErrorCode::NotImplemented`] until Phase 1.
-pub fn hash_sha256(_input: &[u8]) -> Result<Vec<u8>, Error> {
-    Err(Error::not_implemented())
-}
-
-/// Compute the CIDv1 of content (CID-1). **Stub.**
-///
-/// # Errors
-/// Returns [`crate::ErrorCode::NotImplemented`] until Phase 1.
-pub fn cid_v1(_input: &[u8]) -> Result<Vec<u8>, Error> {
-    Err(Error::not_implemented())
-}
-
-/// Dispatch a named operation over raw input bytes and return its canonical output bytes.
-///
-/// In Phase 0 every known operation (and every unknown one) yields the canonical `NOT_IMPLEMENTED` envelope
-/// (CORE-2), so this single entry point makes the conformance gate real against stubs.
+/// Dispatch a named operation over raw input bytes and return its canonical output bytes (or the error envelope).
 #[must_use]
 pub fn run_op(op: &str, input: &[u8]) -> Vec<u8> {
-    let result = match op {
-        "canonicalize" => canonicalize(input),
-        "hash_blake3" => hash_blake3(input),
-        "hash_sha256" => hash_sha256(input),
-        "cid_v1" => cid_v1(input),
-        _ => Err(Error::not_implemented()),
-    };
-    match result {
+    match dispatch(op, input) {
         Ok(bytes) => bytes,
-        Err(err) => error_envelope(err.code),
+        Err(err) => error_envelope(err.code()),
+    }
+}
+
+fn dispatch(op: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
+    match op {
+        "canonicalize" => Ok(canon::canonicalize_str(as_str(input)?)?),
+        "hash_blake3" => hash_json(HashAlg::Blake3, input),
+        "hash_sha256" => hash_json(HashAlg::Sha256, input),
+        "cid_v1" => {
+            let cid = canon::cid_blob(HashAlg::Blake3, input)?;
+            Ok(canon::cid_to_string(&cid)?.into_bytes())
+        }
+        "hash_domain_turn" => hash_domain_json(canon::domain::TURN, input),
+        "hash_domain_object" => hash_domain_json(canon::domain::OBJECT, input),
+        "hash_domain_manifest" => hash_domain_json(canon::domain::MANIFEST, input),
+        _ => Err(Error::internal("ops.unknown_op")),
+    }
+}
+
+/// A UTF-8 view of the input, or a content-free invalid-JSON error.
+fn as_str(input: &[u8]) -> Result<&str, Error> {
+    core::str::from_utf8(input).map_err(|_| Error::Canon(ErrorCode::CanonInvalidJson))
+}
+
+/// Canonicalize a JSON input then hash it with `alg`, returning lowercase hex (exercises I2: JCS-before-hash).
+fn hash_json(alg: HashAlg, input: &[u8]) -> Result<Vec<u8>, Error> {
+    let canonical = canon::canonicalize_str(as_str(input)?)?;
+    Ok(canon::hash_with(alg, &canonical).to_hex().into_bytes())
+}
+
+/// Canonicalize a JSON input then domain-separate-hash it (BLAKE3), returning lowercase hex.
+fn hash_domain_json(domain: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
+    let canonical = canon::canonicalize_str(as_str(input)?)?;
+    Ok(canon::hash_domain(HashAlg::Blake3, domain, &canonical)
+        .to_hex()
+        .into_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canonicalize_round_trips_keys() {
+        let out = run_op("canonicalize", br#"{"b":1,"a":2}"#);
+        assert_eq!(out, br#"{"a":2,"b":1}"#);
+    }
+
+    #[test]
+    fn hash_outputs_64_hex_chars() {
+        let out = run_op("hash_blake3", br#"{"a":1}"#);
+        assert_eq!(out.len(), 64);
+        assert!(out.iter().all(u8::is_ascii_hexdigit));
+    }
+
+    #[test]
+    fn cid_outputs_base32_lower() {
+        let out = run_op("cid_v1", b"abc");
+        assert_eq!(out.first(), Some(&b'b'));
+    }
+
+    #[test]
+    fn errors_become_envelopes() {
+        let out = run_op("canonicalize", br#"{"x":1.5}"#);
+        assert_eq!(
+            out,
+            br#"{"ok":false,"error":{"code":"CANON_NON_DETERMINISTIC_FLOAT"}}"#
+        );
+        let dup = run_op("canonicalize", br#"{"a":1,"a":2}"#);
+        assert_eq!(
+            dup,
+            br#"{"ok":false,"error":{"code":"CANON_INVALID_JSON"}}"#
+        );
+    }
+
+    #[test]
+    fn unknown_op_is_internal() {
+        let out = run_op("frobnicate", b"");
+        assert_eq!(out, br#"{"ok":false,"error":{"code":"INTERNAL"}}"#);
     }
 }

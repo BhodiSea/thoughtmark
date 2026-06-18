@@ -38,8 +38,10 @@ crates** (functions that return `Err(NotImplemented)`); product behavior arrives
 
 - **I1 Byte-identity.** Outputs MUST be byte-identical across the Rust core, WASM, and TS. The `spec/vectors/`
   corpus is the oracle. The cross-language conformance job (the single most load-bearing control) asserts it.
-- **I2 JCS-before-hash.** ALWAYS canonicalize JSON via RFC 8785 JCS (`serde_json_canonicalizer`) before hashing —
-  no bare `H(json)`. `serde_jcs` is **BANNED** (abandoned, RFC 8785 divergences — ADR-0001).
+- **I2 JCS-before-hash.** ALWAYS canonicalize JSON via RFC 8785 JCS before hashing — no bare `H(json)` — through
+  the single in-house choke point `thoughtmark_core::canon::jcs` (ADR-0001 **amended**: `serde_json_canonicalizer`
+  is `std`-only, so it is a dev-only differential oracle, not the implementation). `serde_jcs` is **BANNED**
+  (abandoned, RFC 8785 divergences — ADR-0001).
 - **I3 No ambient nondeterminism** in core logic: no `SystemTime::now`, `Instant::now`, `thread_rng`,
   `rand::random`. Time enters as `Clock::now() -> UnixMillis`; randomness as injected `Rng`/`Csprng` traits.
 - **I4 No floating point** anywhere on the canonicalization / hashing / CID / Merkle path (WASM has NaN-bit and
@@ -50,7 +52,7 @@ crates** (functions that return `Err(NotImplemented)`); product behavior arrives
   verification path; bare `verify` is banned). Hashing via `blake3` + `sha2`. Never hand-roll crypto.
 - **I7 Integrity, not validity, not faithfulness** (see threat model above).
 - **I8 Pure, layered, audited core.** Enforced by `forbid(unsafe_code)` + the dependency-direction `cargo
-  metadata` check.
+metadata` check.
 
 ## The no-panic wall (arch §2.3)
 
@@ -67,12 +69,13 @@ A Rust panic crossing the WASM boundary becomes an uncatchable `RuntimeError`. S
 - Add a dependency without `cargo deny check` (and a `cargo vet` entry). Add a networking crate, `getrandom`,
   `wasm-bindgen`, `tokio`, or `reqwest` to `thoughtmark-core`'s closure — the dep-direction check will fail.
 - Introduce a float, `SystemTime::now`, or `thread_rng` on the canon/hash/CID/merkle path.
-- Use bare Ed25519 `verify` (use `verify_strict`); re-implement JCS; use `serde_jcs`.
+- Use bare Ed25519 `verify` (use `verify_strict`); add a SECOND canonicalizer (the in-house `canon::jcs` is the
+  one choke point — ADR-0001 amended); use `serde_jcs`.
 - Push to a protected branch or force-push.
 
 ## Build / test / lint (run before every commit)
 
-- `just ci`  — the whole CI graph in order (Cargo → wasm build → TS conformance). It is the single build-graph
+- `just ci` — the whole CI graph in order (Cargo → wasm build → TS conformance). It is the single build-graph
   oracle (ADR-0003). Pieces: `just doctor` (assert toolchain), `just ci-rust`, `just ci-wasm`, `just ci-ts`,
   `just ci-docs`.
 - `just ci` = `fmt --check`, `clippy -D warnings`, `nextest`, **conformance**, `deny`, `audit`, dep-direction +

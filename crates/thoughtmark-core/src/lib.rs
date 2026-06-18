@@ -25,18 +25,26 @@
 //! capture; append-only consistency; signer identity). It does **not** prove validity, faithfulness, split-view
 //! resistance, or truth-at-capture. See `docs/threat-model.md`.
 //!
-//! # Phase 0 status
+//! # Tier 0
 //!
-//! Every operation is a stub returning [`ErrorCode::NotImplemented`]; [`ops::run_op`] maps that to the canonical
-//! `NOT_IMPLEMENTED` envelope ([`envelope::error_envelope`]) so the cross-language byte-identity gate runs before
-//! any real logic lands.
+//! Phase 1 lands the deterministic byte foundation: [`canon`] (JCS canonicalization, hashing, content addressing,
+//! domain separation, salted commitments) and the injected-determinism runtime [`determinism`]. [`ops::run_op`]
+//! is the single string-dispatched seam shared byte-for-byte with the WASM binding.
 
 extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod canon;
+pub mod determinism;
 pub mod envelope;
 pub mod error;
+mod hex;
 pub mod ops;
 
-pub use error::{Error, ErrorCode};
+pub use canon::{
+    CANON_VERSION, CanonError, Digest, HashAlg, canonicalize, canonicalize_str, hash, hash_domain,
+    hash_with,
+};
+pub use determinism::{Clock, Csprng, Rng, UnixMillis};
+pub use error::{Error, ErrorCode, Result};

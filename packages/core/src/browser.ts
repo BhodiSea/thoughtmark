@@ -17,7 +17,7 @@ export function runOp(op: string, input: Uint8Array): Uint8Array {
   return run_op(op, input);
 }
 
-/** The canonicalization format version reported by the WASM core. */
-export function canonVersion(): number {
+/** The canonicalization format identifier reported by the WASM core (e.g. `"tm-jcs-1"`). */
+export function canonVersion(): string {
   return canon_version();
 }
