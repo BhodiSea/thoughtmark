@@ -1,7 +1,7 @@
 {
-  "vectors_version": "0.2.0",
+  "vectors_version": "0.3.0",
   "canon_version": "tm-jcs-1",
-  "vector_count": 22,
+  "vector_count": 37,
   "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
   "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG).",
   "cases": [
@@ -111,6 +111,90 @@
       "expected": "statement/0001/expected.bin"
     },
     {
+      "id": "merkle/0001",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0001/leaves.json",
+      "expected": "merkle/0001/root.txt"
+    },
+    {
+      "id": "merkle/0002",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0002/leaves.json",
+      "expected": "merkle/0002/root.txt"
+    },
+    {
+      "id": "merkle/0003",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0003/leaves.json",
+      "expected": "merkle/0003/root.txt"
+    },
+    {
+      "id": "merkle/0004",
+      "spec_req": "LOG-2",
+      "op": "merkle_root",
+      "input": "merkle/0004/leaves.json",
+      "expected": "merkle/0004/root.txt"
+    },
+    {
+      "id": "merkle/0005",
+      "spec_req": "LOG-2",
+      "op": "merkle_root",
+      "input": "merkle/0005/leaves.json",
+      "expected": "merkle/0005/root.txt"
+    },
+    {
+      "id": "merkle/0006",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0006/leaves.json",
+      "expected": "merkle/0006/root.txt"
+    },
+    {
+      "id": "inclusion/0001",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "inclusion/0001/input.json",
+      "expected": "inclusion/0001/ok.txt"
+    },
+    {
+      "id": "inclusion/0002",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "inclusion/0002/input.json",
+      "expected": "inclusion/0002/ok.txt"
+    },
+    {
+      "id": "inclusion/0003",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "inclusion/0003/input.json",
+      "expected": "inclusion/0003/ok.txt"
+    },
+    {
+      "id": "consistency/0001",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "consistency/0001/input.json",
+      "expected": "consistency/0001/ok.txt"
+    },
+    {
+      "id": "consistency/0002",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "consistency/0002/input.json",
+      "expected": "consistency/0002/ok.txt"
+    },
+    {
+      "id": "consistency/0003",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "consistency/0003/input.json",
+      "expected": "consistency/0003/ok.txt"
+    },
+    {
       "id": "negative/0001",
       "spec_req": "CANON-4",
       "op": "canonicalize",
@@ -165,6 +249,30 @@
       "input": "negative/0007/input.json",
       "expect_error": "CANON_INTEGER_OUT_OF_RANGE",
       "expected_code": "negative/0007/expected_code.txt"
+    },
+    {
+      "id": "negative/0008",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "negative/0008/input.json",
+      "expect_error": "MERKLE_PROOF_INVALID",
+      "expected_code": "negative/0008/expected_code.txt"
+    },
+    {
+      "id": "negative/0009",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "negative/0009/input.json",
+      "expect_error": "MERKLE_PROOF_INVALID",
+      "expected_code": "negative/0009/expected_code.txt"
+    },
+    {
+      "id": "negative/0010",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "negative/0010/input.json",
+      "expect_error": "CONSISTENCY_PROOF_INVALID",
+      "expected_code": "negative/0010/expected_code.txt"
     }
   ]
 }

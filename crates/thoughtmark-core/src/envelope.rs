@@ -20,6 +20,13 @@ pub fn error_envelope(code: ErrorCode) -> Vec<u8> {
     out
 }
 
+/// The canonical success envelope `{"ok":true}`, returned by pure-verify ops (a proof check that succeeds has no
+/// byte output of its own). A negative case returns [`error_envelope`] instead, so both engines compare equal.
+#[must_use]
+pub fn success_envelope() -> Vec<u8> {
+    br#"{"ok":true}"#.to_vec()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -12,8 +12,10 @@
 //! preimage).
 
 use crate::canon::{self, HashAlg};
-use crate::envelope::error_envelope;
+use crate::envelope::{error_envelope, success_envelope};
 use crate::error::{Error, ErrorCode};
+use crate::merkle::{self, ConsistencyProof, InclusionProof, TreeHash};
+use alloc::string::String;
 use alloc::vec::Vec;
 
 /// Dispatch a named operation over raw input bytes and return its canonical output bytes (or the error envelope).
@@ -38,6 +40,9 @@ fn dispatch(op: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
         "hash_domain_object" => hash_domain_json(canon::domain::OBJECT, input),
         "hash_domain_manifest" => hash_domain_json(canon::domain::MANIFEST, input),
         "trail_root" => trail_root_json(input),
+        "merkle_root" => op_merkle_root(input),
+        "merkle_verify_inclusion" => op_merkle_verify_inclusion(input),
+        "merkle_verify_consistency" => op_merkle_verify_consistency(input),
         _ => Err(Error::internal("ops.unknown_op")),
     }
 }
@@ -77,6 +82,62 @@ fn trail_root_json(input: &[u8]) -> Result<Vec<u8>, Error> {
     out.extend_from_slice(sha256.as_bytes());
     out.extend_from_slice(b"\"}");
     Ok(out)
+}
+
+/// `{"leaves":["<base64 record>", ...]}` → the base64 RFC 6962 Merkle tree hash (each record is leaf-hashed first;
+/// an empty list hashes to `empty_root`). The root is base64, not hex — a `TreeHash` is deliberately distinct from
+/// a content `Digest` (ADR-0013).
+fn op_merkle_root(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        leaves: Vec<String>,
+    }
+    let req: Req = serde_json::from_slice(input)
+        .map_err(|_| Error::Inclusion(ErrorCode::MerkleProofInvalid))?;
+    let mut hashes = Vec::with_capacity(req.leaves.len());
+    for record_b64 in &req.leaves {
+        let record = crate::base64::decode_any(record_b64)
+            .ok_or(Error::Inclusion(ErrorCode::MerkleProofInvalid))?;
+        hashes.push(merkle::hash_leaf(&record));
+    }
+    let root = merkle::merkle_tree_hash(&hashes);
+    Ok(crate::base64::encode_std(root.as_bytes()).into_bytes())
+}
+
+/// `{"leaf":"<base64 record>","proof":<InclusionProof>,"root":"<TreeHash>"}` → success/error envelope (RFC 9162
+/// §2.1.3.2). The leaf record is leaf-hashed before verification.
+fn op_merkle_verify_inclusion(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        leaf: String,
+        proof: InclusionProof,
+        root: TreeHash,
+    }
+    let req: Req = serde_json::from_slice(input)
+        .map_err(|_| Error::Inclusion(ErrorCode::MerkleProofInvalid))?;
+    let record = crate::base64::decode_any(&req.leaf)
+        .ok_or(Error::Inclusion(ErrorCode::MerkleProofInvalid))?;
+    let leaf_hash = merkle::hash_leaf(&record);
+    merkle::verify_inclusion(&req.proof, &leaf_hash, &req.root)?;
+    Ok(success_envelope())
+}
+
+/// `{"proof":<ConsistencyProof>,"old_root":"<TreeHash>","new_root":"<TreeHash>"}` → success/error envelope
+/// (RFC 9162 §2.1.4.2).
+fn op_merkle_verify_consistency(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        proof: ConsistencyProof,
+        old_root: TreeHash,
+        new_root: TreeHash,
+    }
+    let req: Req = serde_json::from_slice(input)
+        .map_err(|_| Error::Consistency(ErrorCode::ConsistencyProofInvalid))?;
+    merkle::verify_consistency(&req.proof, &req.old_root, &req.new_root)?;
+    Ok(success_envelope())
 }
 
 #[cfg(test)]
@@ -120,6 +181,22 @@ mod tests {
     fn unknown_op_is_internal() {
         let out = run_op("frobnicate", b"");
         assert_eq!(out, br#"{"ok":false,"error":{"code":"INTERNAL"}}"#);
+    }
+
+    #[test]
+    fn merkle_root_of_empty_is_base64_sha256_empty() {
+        // base64(SHA-256("")) — the RFC 6962 empty-tree root.
+        let out = run_op("merkle_root", br#"{"leaves":[]}"#);
+        assert_eq!(out, b"47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=");
+    }
+
+    #[test]
+    fn merkle_verify_inclusion_malformed_is_proof_invalid() {
+        let out = run_op("merkle_verify_inclusion", br#"{"not":"a proof"}"#);
+        assert_eq!(
+            out,
+            br#"{"ok":false,"error":{"code":"MERKLE_PROOF_INVALID"}}"#
+        );
     }
 
     #[test]

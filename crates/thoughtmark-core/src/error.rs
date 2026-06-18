@@ -34,6 +34,13 @@ pub enum ErrorCode {
     DigestMismatch,
     /// A CID was malformed, or a parsed CID failed the pinned-length check.
     CidMalformed,
+    /// A Merkle inclusion proof did not reconstruct the expected root, or was structurally malformed (e.g. a
+    /// path of the wrong length — the proof-padding forgery vector).
+    MerkleProofInvalid,
+    /// A leaf index was out of range for the stated tree size.
+    MerkleIndexOutOfRange,
+    /// A Merkle consistency proof did not reconcile the old and new roots.
+    ConsistencyProofInvalid,
     /// An internal invariant was violated (a static, content-free site tag, never runtime/secret data).
     Internal,
 }
@@ -50,6 +57,9 @@ impl ErrorCode {
             ErrorCode::UnknownHashAlg => "UNKNOWN_HASH_ALG",
             ErrorCode::DigestMismatch => "DIGEST_MISMATCH",
             ErrorCode::CidMalformed => "CID_MALFORMED",
+            ErrorCode::MerkleProofInvalid => "MERKLE_PROOF_INVALID",
+            ErrorCode::MerkleIndexOutOfRange => "MERKLE_INDEX_OUT_OF_RANGE",
+            ErrorCode::ConsistencyProofInvalid => "CONSISTENCY_PROOF_INVALID",
             ErrorCode::Internal => "INTERNAL",
         }
     }
@@ -77,6 +87,12 @@ pub enum Error {
     /// A CID was malformed.
     #[error("cid malformed")]
     Cid(ErrorCode),
+    /// A Merkle inclusion proof failed to verify (the carried code says how).
+    #[error("merkle inclusion proof invalid")]
+    Inclusion(ErrorCode),
+    /// A Merkle consistency proof failed to verify.
+    #[error("merkle consistency proof invalid")]
+    Consistency(ErrorCode),
     /// An internal invariant was violated; the `'static` tag is a code site, never runtime/secret data.
     #[error("internal invariant violated")]
     Internal(&'static str),
@@ -87,7 +103,11 @@ impl Error {
     #[must_use]
     pub const fn code(&self) -> ErrorCode {
         match self {
-            Error::Canon(c) | Error::Digest(c) | Error::Cid(c) => *c,
+            Error::Canon(c)
+            | Error::Digest(c)
+            | Error::Cid(c)
+            | Error::Inclusion(c)
+            | Error::Consistency(c) => *c,
             Error::Internal(_) => ErrorCode::Internal,
         }
     }
@@ -99,6 +119,8 @@ impl Error {
             Error::Canon(_) => "canonicalization failed",
             Error::Digest(_) => "digest mismatch",
             Error::Cid(_) => "cid malformed",
+            Error::Inclusion(_) => "merkle inclusion proof invalid",
+            Error::Consistency(_) => "merkle consistency proof invalid",
             Error::Internal(tag) => tag,
         }
     }

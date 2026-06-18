@@ -36,6 +36,10 @@ cid = { workspace = true }
 multihash = { workspace = true }
 thiserror = { workspace = true }
 zeroize = { workspace = true, features = ["derive"] }
+# Tier-1: `subtle` for constant-time hash/secret comparison (no `==` on tree hashes); `base64` for the
+# transparency-tree wire forms (TreeHash/checkpoint/DSSE) — emit STANDARD padded, accept std+url-safe on read.
+subtle = { workspace = true }
+base64 = { workspace = true }
 # vectors-only deterministic RNG. `default-features = false` keeps `os_rng`/getrandom OUT of the closure; a seeded
 # ChaCha20 needs no entropy source. Optional + gated so the default/alloc build never links them.
 rand_chacha = { version = "0.9", default-features = false, optional = true }

@@ -1,0 +1,13 @@
+{
+  "new_root": "uFW0LWww9bCH4FJmeD+9bjlPe5JgE8yqZ3AKiwxaWW8=",
+  "old_root": "lqKW0iTyhcZ77pPDD4owkVfw2qNdxbh+QQt4YwoJz8c=",
+  "proof": {
+    "first": "1",
+    "path": [
+      "tBP0fRPuL+bIRbLuFBr4HehY307FSaWLeXC7lmRbyNI=",
+      "UsVrRz5SRpM+eFKYnNn+ujs48Hh0K5Ov/x5l7UZ5eCU=",
+      "TzUhLRL5rSA2SSyV8f55uvTse9m+89/6dXnyKT/1RqQ="
+    ],
+    "second": "5"
+  }
+}

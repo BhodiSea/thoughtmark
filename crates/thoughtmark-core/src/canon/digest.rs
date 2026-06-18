@@ -165,8 +165,9 @@ pub fn hash(bytes: &[u8]) -> Digest {
 }
 
 /// SHA-256 into a fixed array. The output length is statically 32, so the `copy_from_slice` cannot panic (it runs
-/// only behind the length guard); the impossible mismatch leaves a zeroed array rather than panicking.
-fn sha256_array(bytes: &[u8]) -> [u8; 32] {
+/// only behind the length guard); the impossible mismatch leaves a zeroed array rather than panicking. Shared with
+/// the Merkle module (RFC 6962 is SHA-256-only, ADR-0013).
+pub(crate) fn sha256_array(bytes: &[u8]) -> [u8; 32] {
     use sha2::Digest as _;
     let computed = sha2::Sha256::digest(bytes);
     let mut out = [0u8; 32];

@@ -35,12 +35,15 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+mod base64;
 pub mod canon;
 pub mod determinism;
 pub mod envelope;
 pub mod error;
 mod hex;
+pub mod merkle;
 pub mod ops;
+mod wire;
 
 pub use canon::{
     CANON_VERSION, CanonError, Digest, HashAlg, canonicalize, canonicalize_str, hash, hash_domain,
@@ -48,3 +51,7 @@ pub use canon::{
 };
 pub use determinism::{Clock, Csprng, Rng, UnixMillis};
 pub use error::{Error, ErrorCode, Result};
+pub use merkle::{
+    ConsistencyProof, InclusionProof, TreeHash, TreeState, merkle_tree_hash, verify_consistency,
+    verify_inclusion,
+};

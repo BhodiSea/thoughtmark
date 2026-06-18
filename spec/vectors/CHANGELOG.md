@@ -5,6 +5,25 @@ The corpus is versioned independently from the code (its own SemVer in `VERSION`
 MAJOR corpus release. Three version axes are never conflated: code SemVer, corpus SemVer, and the format
 identifiers baked into hashed bytes (arch P4).
 
+## [0.3.0] — Phase 2 (M2): the RFC 6962 / RFC 9162 Merkle corpus (additive)
+
+- **Added Merkle tree-hash vectors** (`merkle/0001-0006`, LOG-1/LOG-2, op `merkle_root` → base64 root): empty,
+  single, power-of-two (4, 8), and **non-power-of-two (5, 7)** trees — the latter pin the
+  strict-largest-power-of-two split (a naive `n/2` split is a classic bug that passes only on powers of two). The
+  empty root is the base64 of `SHA-256("")`; a `TreeHash` is base64, deliberately distinct from a content `Digest`
+  (ADR-0013).
+- **Added inclusion-proof vectors** (`inclusion/0001-0003`, LOG-2, op `merkle_verify_inclusion` → `{"ok":true}`)
+  and **consistency-proof vectors** (`consistency/0001-0003`, LOG-3, op `merkle_verify_consistency`), generated
+  from the validated core (`THOUGHTMARK_EMIT_MERKLE=1`) over middle/first/last leaves and pow2/non-pow2 prefixes.
+- **Added Merkle negative cases** (fail-closed parity across all four executors): a mutated audit-path element
+  (`negative/0008`) and a too-long audit path — the proof-padding forgery vector (`negative/0009`) — both →
+  `MERKLE_PROOF_INVALID`; a consistency proof against a tampered `new_root` (`negative/0010`) →
+  `CONSISTENCY_PROOF_INVALID`.
+- **Independent cross-check**: the pure-TS oracle (executor D) re-implements RFC 6962/9162 from `@noble/hashes`
+  alone (its own leaf/node hashing, streaming tree hash, and iterative inclusion/consistency verifiers) and agrees
+  with the Rust core byte-for-byte on every case.
+- **Additive only** — no existing expected byte changed (`vector_count` 22 → 37), a MINOR corpus release.
+
 ## [0.2.0] — Phase 2 (M1): the `Provenance/v1` schema corpus (additive)
 
 - **Added the reasoning-trail schema vectors** (the §5.11 MedQBank worked example, with real opaque off-ledger

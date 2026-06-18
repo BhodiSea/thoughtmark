@@ -32,3 +32,17 @@ path = "fuzz_targets/cid.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "merkle_verify"
+path = "fuzz_targets/merkle_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "consistency_verify"
+path = "fuzz_targets/consistency_verify.rs"
+test = false
+doc = false
+bench = false
