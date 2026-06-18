@@ -42,6 +42,14 @@ multihash = { version = "0.19", default-features = false }
 subtle = { version = "2", default-features = false }
 zeroize = { version = "1", default-features = false }
 thiserror = { version = "2", default-features = false }
+# Tier-1 crypto/encoding set (Phase 2). All no_std+alloc, no `getrandom` on the verify path. `secrecy` 0.10 holds
+# the signer seed in a `SecretBox` (zeroized on drop); `bs58` decodes did:key; `base64` carries DSSE/checkpoint
+# bytes (emit STANDARD padded, accept std+url-safe on read); `itoa` builds the DSSE PAE length prefix (no leading
+# zeros, allocation-free — never `format!`). Inert until a crate depends on them.
+secrecy = { version = "0.10", default-features = false, features = ["alloc"] }
+bs58 = { version = "0.5", default-features = false, features = ["alloc"] }
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+itoa = { version = "1", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"   # per-crate override allows it ONLY in thoughtmark-wasm
