@@ -37,6 +37,7 @@ extern crate std;
 
 mod base64;
 pub mod canon;
+pub mod checkpoint;
 pub mod determinism;
 pub mod did_key;
 pub mod dsse;
@@ -52,6 +53,7 @@ pub use canon::{
     CANON_VERSION, CanonError, Digest, HashAlg, canonicalize, canonicalize_str, hash, hash_domain,
     hash_with,
 };
+pub use checkpoint::{Checkpoint, checkpoint_body, sign_checkpoint, verify_checkpoint};
 pub use determinism::{Clock, Csprng, Rng, UnixMillis};
 pub use did_key::{decode_did_key, encode_did_key};
 pub use dsse::{DSSE_PAYLOAD_TYPE, DsseEnvelope, EnvSig, pae};

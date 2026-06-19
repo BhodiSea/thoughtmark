@@ -388,6 +388,40 @@ function resolveKey(key: string): Uint8Array {
   return hexToBytes(key);
 }
 
+const NL = new Uint8Array([0x0a]);
+const EM_DASH_SP = new Uint8Array([0xe2, 0x80, 0x94, 0x20]);
+
+function startsWith(arr: Uint8Array, prefix: Uint8Array): boolean {
+  if (arr.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i++) if (arr[i] !== prefix[i]) return false;
+  return true;
+}
+
+function splitBytes(arr: Uint8Array, sep: number): Uint8Array[] {
+  const out: Uint8Array[] = [];
+  let start = 0;
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] === sep) {
+      out.push(arr.subarray(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(arr.subarray(start));
+  return out;
+}
+
+/** The byte offset where the checkpoint signature block begins (the first em-dash line). */
+function sigBlockStart(note: Uint8Array): number {
+  let offset = 0;
+  while (offset < note.length) {
+    if (startsWith(note.subarray(offset), EM_DASH_SP)) return offset;
+    const nl = note.indexOf(0x0a, offset);
+    if (nl < 0) break;
+    offset = nl + 1;
+  }
+  return note.length;
+}
+
 /** Run an op via the oracle, returning the output bytes. Canonicalize-class ops throw `CanonReject` on failure;
  *  the verify ops encode failure in their returned envelope (matching the Rust core's `run_op`). */
 function oracleRun(c: Case, input: Buffer): Uint8Array {
@@ -553,6 +587,75 @@ function oracleRun(c: Case, input: Buffer): Uint8Array {
       const canonEnv = canonicalize(envelope);
       if (typeof canonEnv !== "string") throw new Error(`${c.id}: envelope not canonicalizable`);
       return enc.encode(canonEnv);
+    }
+    case "checkpoint_body": {
+      const cp = JSON.parse(input.toString("utf8")) as {
+        origin: string;
+        size: string;
+        root: string;
+        extensions?: string[];
+      };
+      const parts: Uint8Array[] = [
+        enc.encode(cp.origin),
+        NL,
+        enc.encode(cp.size),
+        NL,
+        enc.encode(cp.root),
+        NL,
+      ];
+      for (const ext of cp.extensions ?? []) {
+        parts.push(enc.encode(ext), NL);
+      }
+      return concatBytes(...parts);
+    }
+    case "checkpoint_verify": {
+      const req = JSON.parse(input.toString("utf8")) as {
+        note_b64: string;
+        keyname: string;
+        pubkey_hex: string;
+      };
+      const note = fromB64(req.note_b64);
+      let pubkey: Uint8Array;
+      try {
+        pubkey = hexToBytes(req.pubkey_hex);
+        if (pubkey.length !== 32) return errEnvelope("SIG_MALFORMED_KEY");
+        ed25519.Point.fromHex(pubkey);
+      } catch {
+        return errEnvelope("SIG_MALFORMED_KEY");
+      }
+      const split = sigBlockStart(note);
+      const body = note.subarray(0, split);
+      const keynameBytes = enc.encode(req.keyname);
+      const kh = sha256(concatBytes(keynameBytes, new Uint8Array([0x0a, 0x01]), pubkey)).subarray(
+        0,
+        4,
+      );
+      let matched = false;
+      for (const line of splitBytes(note.subarray(split), 0x0a)) {
+        if (!startsWith(line, EM_DASH_SP)) continue;
+        const after = line.subarray(4);
+        const sp = after.indexOf(0x20);
+        if (sp < 0) continue;
+        if (!bytesEqual(after.subarray(0, sp), keynameBytes)) continue;
+        const blob = fromB64(new TextDecoder().decode(after.subarray(sp + 1)));
+        if (blob.length !== 68 || !bytesEqual(blob.subarray(0, 4), kh)) continue;
+        try {
+          if (ed25519.verify(blob.subarray(4), body, pubkey, { zip215: false })) {
+            matched = true;
+            break;
+          }
+        } catch {
+          /* try next */
+        }
+      }
+      if (!matched) return errEnvelope("CHECKPOINT_SIGNATURE_INVALID");
+      const lines = splitBytes(body, 0x0a).map((l) => new TextDecoder().decode(l));
+      const exts = lines.slice(3).filter((l) => l.length > 0);
+      const base = { origin: lines[0], root: lines[2], size: lines[1] };
+      const cp = exts.length > 0 ? { ...base, extensions: exts } : base;
+      const canonCp = canonicalize(cp);
+      if (typeof canonCp !== "string") throw new Error(`${c.id}: checkpoint not canonicalizable`);
+      return enc.encode(canonCp);
     }
     default:
       throw new Error(`${c.id}: oracle does not know op ${c.op}`);

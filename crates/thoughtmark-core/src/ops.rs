@@ -12,6 +12,7 @@
 //! preimage).
 
 use crate::canon::{self, HashAlg};
+use crate::checkpoint::{self, Checkpoint};
 use crate::dsse::{self, DsseEnvelope};
 use crate::envelope::{error_envelope, success_envelope};
 use crate::error::{Error, ErrorCode};
@@ -50,6 +51,8 @@ fn dispatch(op: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
         "did_key_decode" => op_did_key_decode(input),
         "dsse_verify_envelope" => op_dsse_verify_envelope(input),
         "sign_statement" => op_sign_statement(input),
+        "checkpoint_body" => op_checkpoint_body(input),
+        "checkpoint_verify" => op_checkpoint_verify(input),
         _ => Err(Error::internal("ops.unknown_op")),
     }
 }
@@ -243,6 +246,33 @@ fn op_sign_statement(input: &[u8]) -> Result<Vec<u8>, Error> {
     let payload = canon::canonicalize_value(&req.statement)?;
     let envelope = signer.sign_payload(&payload);
     Ok(canon::canonicalize(&envelope)?)
+}
+
+/// A `Checkpoint` JSON → the deterministic C2SP signed-note text body bytes.
+fn op_checkpoint_body(input: &[u8]) -> Result<Vec<u8>, Error> {
+    let cp: Checkpoint = serde_json::from_slice(input)
+        .map_err(|_| Error::Signature(ErrorCode::CheckpointSignatureInvalid))?;
+    Ok(checkpoint::checkpoint_body(&cp))
+}
+
+/// `{"note_b64":"...","keyname":"...","pubkey_hex":"..."}` → the canonical verified `Checkpoint` JSON, else an
+/// error envelope. Pins the em-dash trap and the ≥1-matched-signature requirement.
+fn op_checkpoint_verify(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        note_b64: String,
+        keyname: String,
+        pubkey_hex: String,
+    }
+    let req: Req = serde_json::from_slice(input)
+        .map_err(|_| Error::Signature(ErrorCode::CheckpointSignatureInvalid))?;
+    let note = crate::base64::decode_any(&req.note_b64)
+        .ok_or(Error::Signature(ErrorCode::CheckpointSignatureInvalid))?;
+    let pubkey: [u8; 32] = hex_array(&req.pubkey_hex, ErrorCode::SigMalformedKey)?;
+    let vk = VerifyingKey::from_bytes(&pubkey)?;
+    let cp = checkpoint::verify_checkpoint(&note, &req.keyname, &vk)?;
+    Ok(canon::canonicalize(&cp)?)
 }
 
 #[cfg(test)]

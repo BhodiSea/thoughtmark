@@ -8,6 +8,7 @@
 
 pub mod proof;
 pub mod rfc6962;
+pub mod tiles;
 pub mod tree;
 pub mod verify;
 
@@ -15,5 +16,6 @@ pub use proof::{
     ConsistencyProof, InclusionProof, MerkleReader, NodeId, consistency_proof, inclusion_proof,
 };
 pub use rfc6962::{LEAF_PREFIX, NODE_PREFIX, TreeHash, empty_root, hash_children, hash_leaf};
+pub use tiles::{parse_tile, tile_index_path, tile_path};
 pub use tree::{TreeState, largest_pow2_below, merkle_tree_hash};
 pub use verify::{verify_consistency, verify_inclusion};

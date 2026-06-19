@@ -1,7 +1,7 @@
 {
-  "vectors_version": "0.4.0",
+  "vectors_version": "0.5.0",
   "canon_version": "tm-jcs-1",
-  "vector_count": 45,
+  "vector_count": 49,
   "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
   "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG).",
   "cases": [
@@ -230,6 +230,20 @@
       "expected": "did/0001/pubkey.hex"
     },
     {
+      "id": "checkpoint/0001",
+      "spec_req": "LOG-4",
+      "op": "checkpoint_body",
+      "input": "checkpoint/0001/input.json",
+      "expected": "checkpoint/0001/body.bin"
+    },
+    {
+      "id": "checkpoint/0002",
+      "spec_req": "LOG-4",
+      "op": "checkpoint_verify",
+      "input": "checkpoint/0002/input.json",
+      "expected": "checkpoint/0002/checkpoint.json"
+    },
+    {
       "id": "negative/0001",
       "spec_req": "CANON-4",
       "op": "canonicalize",
@@ -332,6 +346,22 @@
       "input": "negative/0013/input.json",
       "expect_error": "SIG_MALFORMED_KEY",
       "expected_code": "negative/0013/expected_code.txt"
+    },
+    {
+      "id": "negative/0014",
+      "spec_req": "LOG-4",
+      "op": "checkpoint_verify",
+      "input": "negative/0014/input.json",
+      "expect_error": "CHECKPOINT_SIGNATURE_INVALID",
+      "expected_code": "negative/0014/expected_code.txt"
+    },
+    {
+      "id": "negative/0015",
+      "spec_req": "LOG-4",
+      "op": "checkpoint_verify",
+      "input": "negative/0015/input.json",
+      "expect_error": "CHECKPOINT_SIGNATURE_INVALID",
+      "expected_code": "negative/0015/expected_code.txt"
     }
   ]
 }

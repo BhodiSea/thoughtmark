@@ -49,6 +49,8 @@ pub enum ErrorCode {
     DsseBadEnvelope,
     /// A DSSE envelope's `payloadType` was not `application/vnd.in-toto+json`.
     DssePayloadTypeMismatch,
+    /// A checkpoint (signed note) carried no signature line that matched a known key (or was malformed).
+    CheckpointSignatureInvalid,
     /// An internal invariant was violated (a static, content-free site tag, never runtime/secret data).
     Internal,
 }
@@ -72,6 +74,7 @@ impl ErrorCode {
             ErrorCode::SigMalformedKey => "SIG_MALFORMED_KEY",
             ErrorCode::DsseBadEnvelope => "DSSE_BAD_ENVELOPE",
             ErrorCode::DssePayloadTypeMismatch => "DSSE_PAYLOAD_TYPE_MISMATCH",
+            ErrorCode::CheckpointSignatureInvalid => "CHECKPOINT_SIGNATURE_INVALID",
             ErrorCode::Internal => "INTERNAL",
         }
     }

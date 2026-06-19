@@ -5,6 +5,20 @@ The corpus is versioned independently from the code (its own SemVer in `VERSION`
 MAJOR corpus release. Three version axes are never conflated: code SemVer, corpus SemVer, and the format
 identifiers baked into hashed bytes (arch P4).
 
+## [0.5.0] — Phase 2 (M4): the C2SP checkpoint corpus (additive)
+
+- **`checkpoint_body`** (`checkpoint/0001`, LOG-4): the deterministic signed-note text body
+  (`origin "\n" size "\n" base64(root) "\n"`). **`checkpoint_verify`** (`checkpoint/0002`, LOG-4) verifies a signed
+  note and returns the canonical parsed `Checkpoint`.
+- **The two exactness-trap negatives** (LOG-4, both → `CHECKPOINT_SIGNATURE_INVALID`): a **hyphen in place of the
+  em-dash** signature-line prefix (`negative/0014`) — the prefix is U+2014 + space, never `-`; and a signature for
+  a **different keyname** (`negative/0015`) — `verify_checkpoint` requires ≥1 line to actually match a known key,
+  since the note spec mandates ignoring unknown signatures.
+- The key-hash is `SHA-256(keyname ‖ 0x0A ‖ 0x01 ‖ pubkey32)[..4]`. The pure-TS oracle (executor D) re-parses the
+  note byte-for-byte and re-verifies via `@noble/curves`, agreeing with the Rust core on both traps.
+- **Additive only** — `vector_count` 45 → 49, a MINOR corpus release. (Also: `core::merkle::tiles` lands the
+  tlog-tiles `parse_tile` + the `x`-prefixed index path encoder, core-unit-tested.)
+
 ## [0.4.0] — Phase 2 (M3): the DSSE / Ed25519 / did:key signing corpus (additive)
 
 - **Ed25519 `verify_strict`** (`ed25519/0001` accept, SIG-1) plus the **malleability/cofactor reject boundary**
