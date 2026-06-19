@@ -894,6 +894,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "thoughtmark-log"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "thiserror",
+ "thoughtmark-core",
+]
+
+[[package]]
 name = "thoughtmark-schema"
 version = "0.1.0"
 dependencies = [
