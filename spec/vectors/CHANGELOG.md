@@ -5,6 +5,27 @@ The corpus is versioned independently from the code (its own SemVer in `VERSION`
 MAJOR corpus release. Three version axes are never conflated: code SemVer, corpus SemVer, and the format
 identifiers baked into hashed bytes (arch P4).
 
+## [0.6.1] — Phase 2 red-team: C2SP signed-note conformance fix (input-only)
+
+- **Bug:** the checkpoint note format omitted the **mandatory blank-line separator** that
+  [c2sp.org/signed-note](https://c2sp.org/signed-note) requires between the signed text and the signature block
+  ("a text ending in newline, followed by a blank line, followed by one or more signature lines"). The note glued
+  the `— …` signature line directly onto the body. This made the notes un-parseable by every other signed-note
+  implementation (sigsum / Go checksum DB / sunlight) and made `verify_checkpoint` reject every real checkpoint
+  (it would fold the blank line into the signed text). LOG-4 ("MUST be a C2SP signed note") was violated. The
+  independent pure-TS oracle did not catch it because it **mirrored** the Rust note layout rather than the real
+  format — the lesson being that a second implementation only proves self-consistency unless it is anchored to the
+  external standard.
+- **Fix:** `sign_checkpoint` now emits the blank-line separator; `verify_checkpoint` splits the note at the first
+  `\n\n` and signs/verifies over the text **including its final newline but excluding the blank line**. The TS
+  oracle was updated to the same (independently re-derived) split.
+- **No expected value changed.** The actually-signed bytes are `checkpoint_body`, which was already correct
+  (`origin "\n" size "\n" base64(root) "\n"`), so `checkpoint/0001` and every `checkpoint_verify` **output** are
+  byte-identical. Only the `note_b64` **inputs** of `checkpoint/0002`, `negative/0014`, and `negative/0015` were
+  regenerated to be valid C2SP notes. `vector_count` stays 51. Because no expected byte moved, this is a **PATCH**
+  corpus release, not a breaking one. New focused Rust tests (`tests/checkpoint.rs`) pin the blank-line contract so
+  the regression cannot recur.
+
 ## [0.6.0] — Phase 2 (M5): the ThoughtmarkBundle corpus (additive)
 
 - **`bundle_check`** (`bundle/0001`, BUNDLE-1): a COMPLETE assembled bundle — a DSSE-signed in-toto Statement, its

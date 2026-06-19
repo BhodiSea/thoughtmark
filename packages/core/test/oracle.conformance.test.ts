@@ -410,16 +410,16 @@ function splitBytes(arr: Uint8Array, sep: number): Uint8Array[] {
   return out;
 }
 
-/** The byte offset where the checkpoint signature block begins (the first em-dash line). */
-function sigBlockStart(note: Uint8Array): number {
-  let offset = 0;
-  while (offset < note.length) {
-    if (startsWith(note.subarray(offset), EM_DASH_SP)) return offset;
-    const nl = note.indexOf(0x0a, offset);
-    if (nl < 0) break;
-    offset = nl + 1;
+/** Split a C2SP signed note into [signed text, signature block] at the mandatory blank-line separator (a lone
+ *  `\n`): text ends in a newline, then a blank line, then ≥1 signature line. The signed text includes its final
+ *  newline but not the blank line. Returns null (→ fail closed) if there is no blank-line separator. */
+function splitNote(note: Uint8Array): [Uint8Array, Uint8Array] | null {
+  for (let i = 0; i + 1 < note.length; i++) {
+    if (note[i] === 0x0a && note[i + 1] === 0x0a) {
+      return [note.subarray(0, i + 1), note.subarray(i + 2)];
+    }
   }
-  return note.length;
+  return null;
 }
 
 /** Run an op via the oracle, returning the output bytes. Canonicalize-class ops throw `CanonReject` on failure;
@@ -623,15 +623,16 @@ function oracleRun(c: Case, input: Buffer): Uint8Array {
       } catch {
         return errEnvelope("SIG_MALFORMED_KEY");
       }
-      const split = sigBlockStart(note);
-      const body = note.subarray(0, split);
+      const noteSplit = splitNote(note);
+      if (noteSplit === null) return errEnvelope("CHECKPOINT_SIGNATURE_INVALID");
+      const [body, sigBlock] = noteSplit;
       const keynameBytes = enc.encode(req.keyname);
       const kh = sha256(concatBytes(keynameBytes, new Uint8Array([0x0a, 0x01]), pubkey)).subarray(
         0,
         4,
       );
       let matched = false;
-      for (const line of splitBytes(note.subarray(split), 0x0a)) {
+      for (const line of splitBytes(sigBlock, 0x0a)) {
         if (!startsWith(line, EM_DASH_SP)) continue;
         const after = line.subarray(4);
         const sp = after.indexOf(0x20);

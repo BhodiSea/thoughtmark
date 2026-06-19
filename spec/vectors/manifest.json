@@ -1,5 +1,5 @@
 {
-  "vectors_version": "0.6.0",
+  "vectors_version": "0.6.1",
   "canon_version": "tm-jcs-1",
   "vector_count": 51,
   "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },

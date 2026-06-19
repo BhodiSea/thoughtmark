@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 //! C2SP signed-note Signed-Tree-Head checkpoints (arch §6.4).
 //!
-//! Two exactness traps the vectors pin: (1) the signature line prefix is **em-dash + space** (U+2014 `0xE2 0x80
+//! Three exactness traps the vectors pin: (1) the signature line prefix is **em-dash + space** (U+2014 `0xE2 0x80
 //! 0x94`, then `0x20`), NOT a hyphen; (2) [`verify_checkpoint`] MUST assert **≥1 signature line actually matched**
 //! a known key — the note spec mandates ignoring unknown signatures, so a "verified" note could otherwise carry
-//! zero valid ones. The key-hash is `SHA-256(keyname ‖ 0x0A ‖ 0x01 ‖ pubkey32)[..4]` (`0x01` = the Ed25519
-//! algorithm byte). The signature is over the note's **text body** (origin / size / base64 root / extensions),
-//! including its trailing newline.
+//! zero valid ones; (3) a **mandatory blank-line separator** (a lone `\n`) sits between the signed text and the
+//! signature block (c2sp.org/signed-note) — the signed text ends in a newline but does NOT include the blank
+//! line, and getting this wrong makes the note un-interoperable with every other signed-note implementation
+//! (sigsum, the Go checksum DB, sunlight). The key-hash is `SHA-256(keyname ‖ 0x0A ‖ 0x01 ‖ pubkey32)[..4]`
+//! (`0x01` = the Ed25519 algorithm byte). The signature is over the note's **text body** (origin / size /
+//! base64 root / extensions), including its trailing newline.
 
 use crate::canon::digest::sha256_array;
 use crate::error::{Error, ErrorCode};
@@ -68,7 +71,9 @@ pub fn key_hash(keyname: &str, vk: &VerifyingKey) -> [u8; 4] {
     out
 }
 
-/// Sign a checkpoint body, appending one `— <keyname> <base64(keyhash4 ‖ sig64)>` line.
+/// Sign a checkpoint body, appending the mandatory blank-line separator and one
+/// `— <keyname> <base64(keyhash4 ‖ sig64)>` signature line (c2sp.org/signed-note). The signature is over `body`
+/// (which already ends in a newline); the blank line that follows it is NOT signed.
 #[must_use]
 pub fn sign_checkpoint(
     body: &[u8],
@@ -81,6 +86,7 @@ pub fn sign_checkpoint(
     blob.extend_from_slice(&key_hash(keyname, vk));
     blob.extend_from_slice(&signature.0);
     let mut note = Vec::from(body);
+    note.push(b'\n'); // the mandatory blank-line separator between the signed text and the signature block
     note.extend_from_slice(EM_DASH_SP);
     note.extend_from_slice(keyname.as_bytes());
     note.push(b' ');
@@ -89,25 +95,25 @@ pub fn sign_checkpoint(
     note
 }
 
-/// The byte offset where the signature block begins (the first line starting with the em-dash prefix).
-fn signature_block_start(note: &[u8]) -> usize {
-    let mut offset = 0usize;
-    while let Some(rest) = note.get(offset..) {
-        if rest.is_empty() {
-            break;
+/// Split a C2SP signed note into its **signed text** and the trailing signature block at the mandatory
+/// blank-line separator (c2sp.org/signed-note): `text` (ending in `\n`), then a blank line (a lone `\n`), then
+/// ≥1 signature line. The returned signed text includes its final newline but NOT the separating blank line.
+/// A checkpoint's text lines (origin / size / root / extensions) are all non-empty, so the FIRST `\n\n` is
+/// unambiguously the separator. Returns `None` (→ fail closed) for a note with no blank-line separator.
+fn split_note(note: &[u8]) -> Option<(&[u8], &[u8])> {
+    let mut i = 0usize;
+    loop {
+        let j = i.checked_add(1)?;
+        let (Some(&a), Some(&b)) = (note.get(i), note.get(j)) else {
+            return None;
+        };
+        if a == b'\n' && b == b'\n' {
+            let body = note.get(..=i)?; // through the first newline (the signed text)
+            let sigs = note.get(j.checked_add(1)?..)?; // after the blank line
+            return Some((body, sigs));
         }
-        if rest.starts_with(EM_DASH_SP) {
-            return offset;
-        }
-        match rest.iter().position(|&b| b == b'\n') {
-            Some(nl) => match offset.checked_add(nl).and_then(|x| x.checked_add(1)) {
-                Some(next) => offset = next,
-                None => break,
-            },
-            None => break,
-        }
+        i = j;
     }
-    note.len()
 }
 
 /// Verify a checkpoint note against a known key. Requires **≥1** signature line to match `keyname` with a correct
@@ -120,11 +126,8 @@ pub fn verify_checkpoint(
     keyname: &str,
     vk: &VerifyingKey,
 ) -> Result<Checkpoint, Error> {
-    let split = signature_block_start(note);
-    let body = note
-        .get(..split)
-        .ok_or(Error::internal("checkpoint.body"))?;
-    let sig_block = note.get(split..).unwrap_or(&[]);
+    let (body, sig_block) =
+        split_note(note).ok_or(Error::Signature(ErrorCode::CheckpointSignatureInvalid))?;
     let expected = key_hash(keyname, vk);
 
     let mut matched = false;
