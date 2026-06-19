@@ -1,6 +1,11 @@
 # thoughtmark — Normative Specification
 
-**Status:** Draft (Phase 0). No wire-format freeze yet (that lands at the end of Phase 2).
+**Status:** Phase 2 — **wire-format freeze CANDIDATE**. The four format-identifier values are implemented and
+pinned across all four conformance executors (native Rust, WASM/Node, the pure-TS oracle, and — once the human
+wires the CI job — WASM/3-browsers): `canon_version = "tm-jcs-1"`,
+`predicateType = "https://thoughtmark.dev/Provenance/v1"`, DSSE `payloadType = "application/vnd.in-toto+json"`,
+and bundle `media_type = "application/vnd.thoughtmark.bundle.v1+json"`. From here, changing any hashed byte
+requires a NEW format-identifier value + a MAJOR corpus release (add `canon_v2`, never mutate `canon_v1`).
 **License:** Apache-2.0.
 
 ## 1. Conformance language

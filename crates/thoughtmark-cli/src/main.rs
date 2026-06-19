@@ -40,11 +40,18 @@ fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
             let file = args.get(2).ok_or("usage: tm bundle-check FILE")?;
             bundle_check(&PathBuf::from(file))
         }
+        Some("blake3") => {
+            // Raw BLAKE3 of a file (NOT canonicalize-then-hash) — used by the reproducible-`.wasm` gate.
+            let file = args.get(2).ok_or("usage: tm blake3 FILE")?;
+            let bytes = fs::read(file)?;
+            println!("{}", thoughtmark_core::hash(&bytes).to_hex());
+            Ok(())
+        }
         Some("verify") => {
             // The full cryptographic verify() pipeline is a later phase; bundle-check is the Phase-2 stand-in.
             Err("tm verify: not implemented (Phase 3). Use `tm bundle-check FILE` for the structural check.".into())
         }
-        _ => Err("usage: tm bless [--check] [DIR] | tm bundle-check FILE".into()),
+        _ => Err("usage: tm bless [--check] [DIR] | tm bundle-check FILE | tm blake3 FILE".into()),
     }
 }
 
