@@ -41,6 +41,14 @@ pub enum ErrorCode {
     MerkleIndexOutOfRange,
     /// A Merkle consistency proof did not reconcile the old and new roots.
     ConsistencyProofInvalid,
+    /// An Ed25519 signature failed `verify_strict` (bad signature, non-canonical `S`, or small-order input).
+    SigInvalid,
+    /// A public key / `did:key` was malformed, the wrong length, or off-curve.
+    SigMalformedKey,
+    /// A DSSE envelope was structurally malformed (bad base64, missing fields, no signatures).
+    DsseBadEnvelope,
+    /// A DSSE envelope's `payloadType` was not `application/vnd.in-toto+json`.
+    DssePayloadTypeMismatch,
     /// An internal invariant was violated (a static, content-free site tag, never runtime/secret data).
     Internal,
 }
@@ -60,6 +68,10 @@ impl ErrorCode {
             ErrorCode::MerkleProofInvalid => "MERKLE_PROOF_INVALID",
             ErrorCode::MerkleIndexOutOfRange => "MERKLE_INDEX_OUT_OF_RANGE",
             ErrorCode::ConsistencyProofInvalid => "CONSISTENCY_PROOF_INVALID",
+            ErrorCode::SigInvalid => "SIG_INVALID",
+            ErrorCode::SigMalformedKey => "SIG_MALFORMED_KEY",
+            ErrorCode::DsseBadEnvelope => "DSSE_BAD_ENVELOPE",
+            ErrorCode::DssePayloadTypeMismatch => "DSSE_PAYLOAD_TYPE_MISMATCH",
             ErrorCode::Internal => "INTERNAL",
         }
     }
@@ -93,6 +105,12 @@ pub enum Error {
     /// A Merkle consistency proof failed to verify.
     #[error("merkle consistency proof invalid")]
     Consistency(ErrorCode),
+    /// An Ed25519 signature or key failed (the carried code says which).
+    #[error("signature verification failed")]
+    Signature(ErrorCode),
+    /// A DSSE envelope was invalid.
+    #[error("DSSE envelope invalid")]
+    Dsse(ErrorCode),
     /// An internal invariant was violated; the `'static` tag is a code site, never runtime/secret data.
     #[error("internal invariant violated")]
     Internal(&'static str),
@@ -107,7 +125,9 @@ impl Error {
             | Error::Digest(c)
             | Error::Cid(c)
             | Error::Inclusion(c)
-            | Error::Consistency(c) => *c,
+            | Error::Consistency(c)
+            | Error::Signature(c)
+            | Error::Dsse(c) => *c,
             Error::Internal(_) => ErrorCode::Internal,
         }
     }
@@ -121,6 +141,8 @@ impl Error {
             Error::Cid(_) => "cid malformed",
             Error::Inclusion(_) => "merkle inclusion proof invalid",
             Error::Consistency(_) => "merkle consistency proof invalid",
+            Error::Signature(_) => "signature verification failed",
+            Error::Dsse(_) => "DSSE envelope invalid",
             Error::Internal(tag) => tag,
         }
     }

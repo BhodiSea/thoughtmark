@@ -5,6 +5,25 @@ The corpus is versioned independently from the code (its own SemVer in `VERSION`
 MAJOR corpus release. Three version axes are never conflated: code SemVer, corpus SemVer, and the format
 identifiers baked into hashed bytes (arch P4).
 
+## [0.4.0] — Phase 2 (M3): the DSSE / Ed25519 / did:key signing corpus (additive)
+
+- **Ed25519 `verify_strict`** (`ed25519/0001` accept, SIG-1) plus the **malleability/cofactor reject boundary**
+  (`negative/0011`, SIG-1): a non-canonical scalar `S' = S + ell` — the exact cofactor-8 malleability that
+  `verify_strict` closes (bare `verify` would accept it) — fails closed with `SIG_INVALID`. Also a tampered
+  signature → `SIG_INVALID` (`negative/0012`) and a too-short public key → `SIG_MALFORMED_KEY` (`negative/0013`).
+- **DSSE PAE** (`dsse/0001`, SIG-2): the canonical DSSE spec example —
+  `DSSEv1 29 http://example.com/HelloWorld 11 hello world` — pinning the `itoa` byte-length framing.
+- **Deterministic `sign_statement`** (`dsse/0002`, SIG-5): a fixed seed signs a canonical Statement → a canonical
+  DSSE envelope (one signature, ADR-0007). **`dsse_verify_envelope`** (`dsse/0003`, SIG-3) round-trips it back to
+  the payload. **`did_key_decode`** (`did/0001`, SIG-4) decodes a `did:key:z6Mk…` to its public key.
+- **Independent cross-check**: the pure-TS oracle (executor D) verifies via `@noble/curves` ed25519 with
+  `{ zip215: false }` (RFC 8032 strict, the `verify_strict` equivalent) — it independently REJECTS the
+  non-canonical-`S` variant and reproduces the deterministic `sign_statement` envelope byte-for-byte. Two
+  independent Ed25519 implementations agree on the malleability boundary.
+- **Additive only** — no existing expected byte changed (`vector_count` 37 → 45), a MINOR corpus release. (Build
+  detail: core moved to `sha2` 0.10 + portable BLAKE3 to match the audited dalek stack — identical hash output, no
+  re-bless.)
+
 ## [0.3.0] — Phase 2 (M2): the RFC 6962 / RFC 9162 Merkle corpus (additive)
 
 - **Added Merkle tree-hash vectors** (`merkle/0001-0006`, LOG-1/LOG-2, op `merkle_root` → base64 root): empty,

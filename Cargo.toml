@@ -32,8 +32,13 @@ serde_json = { version = "1", default-features = false, features = [
   "alloc",
   "arbitrary_precision",
 ] }
-blake3 = { version = "1.8", default-features = false }
-sha2 = { version = "0.11", default-features = false }
+# `pure` = portable Rust BLAKE3, no SIMD dispatch: identical hash output, the byte-stable choice the reproducible
+# wasm wants (qf Domain 7), and it drops the `cpufeatures` runtime-detection dep (which would otherwise pull a
+# second `cpufeatures` major alongside the RustCrypto stack's, tripping `multiple_crate_versions`).
+blake3 = { version = "1.8", default-features = false, features = ["pure"] }
+# sha2 0.10 (not 0.11): the version `ed25519-dalek` 2.x and the broader RustCrypto stack use, so core's normal
+# closure carries ONE sha2 / digest / crypto-common (no `multiple_crate_versions`). SHA-256 output is identical.
+sha2 = { version = "0.10", default-features = false }
 ed25519-dalek = { version = "2.2", default-features = false, features = [
   "alloc",
 ] } # NO rand_core in core
@@ -46,7 +51,7 @@ thiserror = { version = "2", default-features = false }
 # the signer seed in a `SecretBox` (zeroized on drop); `bs58` decodes did:key; `base64` carries DSSE/checkpoint
 # bytes (emit STANDARD padded, accept std+url-safe on read); `itoa` builds the DSSE PAE length prefix (no leading
 # zeros, allocation-free — never `format!`). Inert until a crate depends on them.
-secrecy = { version = "0.10", default-features = false, features = ["alloc"] }
+secrecy = { version = "0.10", default-features = false }
 bs58 = { version = "0.5", default-features = false, features = ["alloc"] }
 base64 = { version = "0.22", default-features = false, features = ["alloc"] }
 itoa = { version = "1", default-features = false }
@@ -63,6 +68,13 @@ cargo = { level = "deny", priority = -1 }
 # doc_markdown is a noisy documentation-style pedantic lint (flags every acronym: JCS, CID, RFC, WASM, BLAKE3).
 # Allowing it is a justified relaxation — it is not a correctness/safety lint and does not weaken the no-panic wall.
 doc_markdown = "allow"
+# multiple_crate_versions defers to the project's `deny.toml` dependency-version policy, which deliberately sets
+# `multiple-versions = "warn"` (and `cargo deny check` in ci-rust still reports it at that level). The audited
+# crypto stack carries one unavoidable, benign transitive split — `cpufeatures` 0.2 (sha2 / curve25519-dalek) vs
+# 0.3 (blake3) — that cannot be pinned to a single major. This is a dependency-hygiene nicety, NOT a
+# correctness/security/determinism/no-panic gate; cargo-deny remains the authority. (priority 0 > the cargo
+# group's -1, so this single lint is allowed without relaxing the rest of `clippy::cargo`.)
+multiple_crate_versions = "allow"
 # no-panic wall (a panic crossing the WASM boundary is an uncatchable RuntimeError, arch §2.3).
 # Relax per-crate ONLY with justification (e.g. test harnesses, where a panic is the failure signal).
 unwrap_used = "deny"

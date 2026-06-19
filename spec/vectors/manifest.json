@@ -1,7 +1,7 @@
 {
-  "vectors_version": "0.3.0",
+  "vectors_version": "0.4.0",
   "canon_version": "tm-jcs-1",
-  "vector_count": 37,
+  "vector_count": 45,
   "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
   "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG).",
   "cases": [
@@ -195,6 +195,41 @@
       "expected": "consistency/0003/ok.txt"
     },
     {
+      "id": "ed25519/0001",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0001/input.json",
+      "expected": "ed25519/0001/ok.txt"
+    },
+    {
+      "id": "dsse/0001",
+      "spec_req": "SIG-2",
+      "op": "dsse_pae",
+      "input": "dsse/0001/input.json",
+      "expected": "dsse/0001/pae.bin"
+    },
+    {
+      "id": "dsse/0002",
+      "spec_req": "SIG-5",
+      "op": "sign_statement",
+      "input": "dsse/0002/input.json",
+      "expected": "dsse/0002/envelope.json"
+    },
+    {
+      "id": "dsse/0003",
+      "spec_req": "SIG-3",
+      "op": "dsse_verify_envelope",
+      "input": "dsse/0003/input.json",
+      "expected": "dsse/0003/payload.bin"
+    },
+    {
+      "id": "did/0001",
+      "spec_req": "SIG-4",
+      "op": "did_key_decode",
+      "input": "did/0001/input.txt",
+      "expected": "did/0001/pubkey.hex"
+    },
+    {
       "id": "negative/0001",
       "spec_req": "CANON-4",
       "op": "canonicalize",
@@ -273,6 +308,30 @@
       "input": "negative/0010/input.json",
       "expect_error": "CONSISTENCY_PROOF_INVALID",
       "expected_code": "negative/0010/expected_code.txt"
+    },
+    {
+      "id": "negative/0011",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0011/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0011/expected_code.txt"
+    },
+    {
+      "id": "negative/0012",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0012/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0012/expected_code.txt"
+    },
+    {
+      "id": "negative/0013",
+      "spec_req": "SIG-4",
+      "op": "ed25519_verify",
+      "input": "negative/0013/input.json",
+      "expect_error": "SIG_MALFORMED_KEY",
+      "expected_code": "negative/0013/expected_code.txt"
     }
   ]
 }

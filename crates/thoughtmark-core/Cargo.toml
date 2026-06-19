@@ -16,7 +16,9 @@ description = "The pure audited primitive for thoughtmark (no_std + alloc, forbi
 default = ["std"]
 std = ["alloc"]
 alloc = []
-# Off by default: gates the one RNG-injecting helper so the audited verify path never links a CSPRNG (arch §3.5).
+# Reserved (inert). Core never touches an RNG at all: a fresh key is `TmSigner::from_seed(seed, …)` where the
+# caller supplies the random seed (e.g. the reference app's `OsRng`). So the audited verify path links no CSPRNG
+# and there is no in-core key-mint RNG to gate (arch §3.5).
 keygen = []
 # Off by default: gates FixedClock/SeededRng/VectorCsprng (and their RNG crates) so production can never reproduce
 # a real salt/key from a test seed, and so the wasm/alloc closure never links a CSPRNG (arch §3.5, §10.1).
@@ -40,6 +42,14 @@ zeroize = { workspace = true, features = ["derive"] }
 # transparency-tree wire forms (TreeHash/checkpoint/DSSE) — emit STANDARD padded, accept std+url-safe on read.
 subtle = { workspace = true }
 base64 = { workspace = true }
+# Signing (arch §7). `ed25519-dalek` with NO rand feature by default — the verify path (`verify_strict` always)
+# links no CSPRNG; the `keygen` feature adds `rand_core` + dalek's `rand_core` for the one key-mint helper.
+# `secrecy` holds the 32-byte seed in a zeroized `SecretBox`; `bs58` decodes did:key; `itoa` builds the DSSE PAE
+# length prefix (no leading zeros, allocation-free — never `format!`).
+ed25519-dalek = { workspace = true }
+secrecy = { workspace = true }
+bs58 = { workspace = true }
+itoa = { workspace = true }
 # vectors-only deterministic RNG. `default-features = false` keeps `os_rng`/getrandom OUT of the closure; a seeded
 # ChaCha20 needs no entropy source. Optional + gated so the default/alloc build never links them.
 rand_chacha = { version = "0.9", default-features = false, optional = true }

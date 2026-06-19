@@ -12,9 +12,11 @@
 //! preimage).
 
 use crate::canon::{self, HashAlg};
+use crate::dsse::{self, DsseEnvelope};
 use crate::envelope::{error_envelope, success_envelope};
 use crate::error::{Error, ErrorCode};
 use crate::merkle::{self, ConsistencyProof, InclusionProof, TreeHash};
+use crate::sign::{self, Signature, TmSigner, VerifyingKey};
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -43,8 +45,19 @@ fn dispatch(op: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
         "merkle_root" => op_merkle_root(input),
         "merkle_verify_inclusion" => op_merkle_verify_inclusion(input),
         "merkle_verify_consistency" => op_merkle_verify_consistency(input),
+        "dsse_pae" => op_dsse_pae(input),
+        "ed25519_verify" => op_ed25519_verify(input),
+        "did_key_decode" => op_did_key_decode(input),
+        "dsse_verify_envelope" => op_dsse_verify_envelope(input),
+        "sign_statement" => op_sign_statement(input),
         _ => Err(Error::internal("ops.unknown_op")),
     }
+}
+
+/// Decode a hex string into a fixed-size byte array, mapping any failure to `code`.
+fn hex_array<const N: usize>(hex: &str, code: ErrorCode) -> Result<[u8; N], Error> {
+    let bytes = crate::hex::decode(hex).ok_or(Error::Signature(code))?;
+    <[u8; N]>::try_from(bytes.as_slice()).map_err(|_| Error::Signature(code))
 }
 
 /// A UTF-8 view of the input, or a content-free invalid-JSON error.
@@ -138,6 +151,98 @@ fn op_merkle_verify_consistency(input: &[u8]) -> Result<Vec<u8>, Error> {
         .map_err(|_| Error::Consistency(ErrorCode::ConsistencyProofInvalid))?;
     merkle::verify_consistency(&req.proof, &req.old_root, &req.new_root)?;
     Ok(success_envelope())
+}
+
+/// `{"payload_type":"...","body_b64":"..."}` → the raw DSSE PAE bytes (`"DSSEv1" SP …`).
+fn op_dsse_pae(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        payload_type: String,
+        body_b64: String,
+    }
+    let req: Req =
+        serde_json::from_slice(input).map_err(|_| Error::Dsse(ErrorCode::DsseBadEnvelope))?;
+    let body =
+        crate::base64::decode_any(&req.body_b64).ok_or(Error::Dsse(ErrorCode::DsseBadEnvelope))?;
+    Ok(dsse::pae(&req.payload_type, &body))
+}
+
+/// `{"pubkey_hex":"...","msg_hex":"...","sig_hex":"..."}` → success/error envelope via `verify_strict`. Pins the
+/// Ed25519 malleability/cofactor accept-reject boundary (the authoritative Wycheproof / speccheck cases).
+fn op_ed25519_verify(input: &[u8]) -> Result<Vec<u8>, Error> {
+    // The `*_hex` field names are the frozen wire keys (Wycheproof-style); the common postfix is intentional.
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    #[allow(clippy::struct_field_names)]
+    struct Req {
+        pubkey_hex: String,
+        msg_hex: String,
+        sig_hex: String,
+    }
+    let req: Req =
+        serde_json::from_slice(input).map_err(|_| Error::Signature(ErrorCode::SigInvalid))?;
+    let pubkey: [u8; 32] = hex_array(&req.pubkey_hex, ErrorCode::SigMalformedKey)?;
+    let vk = VerifyingKey::from_bytes(&pubkey)?;
+    let msg = crate::hex::decode(&req.msg_hex).ok_or(Error::Signature(ErrorCode::SigInvalid))?;
+    let sig: [u8; 64] = hex_array(&req.sig_hex, ErrorCode::SigInvalid)?;
+    sign::verify(&vk, &msg, &Signature(sig))?;
+    Ok(success_envelope())
+}
+
+/// A raw `did:key:z…` UTF-8 string → the 32-byte public key as 64 lowercase hex, or `SIG_MALFORMED_KEY`.
+fn op_did_key_decode(input: &[u8]) -> Result<Vec<u8>, Error> {
+    let did =
+        core::str::from_utf8(input).map_err(|_| Error::Signature(ErrorCode::SigMalformedKey))?;
+    let vk = crate::did_key::decode_did_key(did)?;
+    Ok(crate::hex::encode_lower(&vk.to_bytes()).into_bytes())
+}
+
+/// Resolve a verification key from either a `did:key:z…` string or a 64-char hex public key.
+fn resolve_key(key: &str) -> Result<VerifyingKey, Error> {
+    if key.starts_with("did:key:") {
+        crate::did_key::decode_did_key(key)
+    } else {
+        let bytes: [u8; 32] = hex_array(key, ErrorCode::SigMalformedKey)?;
+        VerifyingKey::from_bytes(&bytes)
+    }
+}
+
+/// `{"envelope":<DsseEnvelope>,"keys":["<did:key or hex>", ...]}` → the raw (decoded) canonical payload bytes on
+/// success, else an error envelope.
+fn op_dsse_verify_envelope(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        envelope: DsseEnvelope,
+        keys: Vec<String>,
+    }
+    let req: Req =
+        serde_json::from_slice(input).map_err(|_| Error::Dsse(ErrorCode::DsseBadEnvelope))?;
+    let mut keys = Vec::with_capacity(req.keys.len());
+    for key in &req.keys {
+        keys.push(resolve_key(key)?);
+    }
+    sign::verify_envelope(&req.envelope, &keys)
+}
+
+/// `{"seed_hex":"...","keyid":"...","statement":<json>}` → the canonical DSSE envelope JSON. Deterministic
+/// (Ed25519 signing is deterministic given the seed), so it is a stable conformance vector.
+fn op_sign_statement(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        seed_hex: String,
+        keyid: String,
+        statement: serde_json::Value,
+    }
+    let req: Req =
+        serde_json::from_slice(input).map_err(|_| Error::Dsse(ErrorCode::DsseBadEnvelope))?;
+    let seed: [u8; 32] = hex_array(&req.seed_hex, ErrorCode::SigMalformedKey)?;
+    let signer = TmSigner::from_seed(seed, req.keyid);
+    let payload = canon::canonicalize_value(&req.statement)?;
+    let envelope = signer.sign_payload(&payload);
+    Ok(canon::canonicalize(&envelope)?)
 }
 
 #[cfg(test)]

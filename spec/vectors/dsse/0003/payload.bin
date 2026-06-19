@@ -1,0 +1,1 @@
+{"_type":"https://in-toto.io/Statement/v1","predicate":{"hello":"world"},"predicateType":"https://thoughtmark.dev/Provenance/v1","subject":[{"digest":{"blake3":"00","sha256":"11"},"name":"trail:demo@1"}]}

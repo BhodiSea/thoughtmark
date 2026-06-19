@@ -30,6 +30,7 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "devDependencies": {
+    "@noble/curves": "^1.6.0",
     "@noble/hashes": "^1.4.0",
     "canonicalize": "^2.0.0",
     "multiformats": "^13.3.0"

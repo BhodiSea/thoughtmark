@@ -9,11 +9,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ed25519 } from "@noble/curves/ed25519";
 import { blake3 } from "@noble/hashes/blake3";
 import { sha256 } from "@noble/hashes/sha256";
-import { bytesToHex, concatBytes } from "@noble/hashes/utils";
+import { bytesToHex, concatBytes, hexToBytes } from "@noble/hashes/utils";
 import canonicalizeImport from "canonicalize";
 import { base32 } from "multiformats/bases/base32";
+import { base58btc } from "multiformats/bases/base58";
 import { CID } from "multiformats/cid";
 import * as raw from "multiformats/codecs/raw";
 import { create as createMultihash } from "multiformats/hashes/digest";
@@ -351,7 +353,40 @@ function verifyConsistency(
 }
 
 const OK_ENVELOPE = '{"ok":true}';
+const DSSE_PAYLOAD_TYPE = "application/vnd.in-toto+json";
+const SP = new Uint8Array([0x20]);
 const fromB64 = (s: string): Uint8Array => new Uint8Array(Buffer.from(s, "base64"));
+const toB64 = (b: Uint8Array): string => Buffer.from(b).toString("base64");
+const errEnvelope = (code: string): Uint8Array =>
+  enc.encode(`{"ok":false,"error":{"code":"${code}"}}`);
+
+/** PAE(type, body) = "DSSEv1" SP LEN(type) SP type SP LEN(body) SP body — LEN over BYTE length. */
+function pae(payloadType: string, body: Uint8Array): Uint8Array {
+  const typeBytes = enc.encode(payloadType);
+  return concatBytes(
+    enc.encode("DSSEv1"),
+    SP,
+    enc.encode(String(typeBytes.length)),
+    SP,
+    typeBytes,
+    SP,
+    enc.encode(String(body.length)),
+    SP,
+    body,
+  );
+}
+
+/** Resolve a verification key from a `did:key:z…` or a hex public key (independent of the Rust decoder). */
+function resolveKey(key: string): Uint8Array {
+  if (key.startsWith("did:key:")) {
+    const decoded = base58btc.decode(key.slice("did:key:".length));
+    if (decoded.length !== 34 || decoded[0] !== 0xed || decoded[1] !== 0x01) {
+      throw new Error("bad did:key");
+    }
+    return decoded.slice(2);
+  }
+  return hexToBytes(key);
+}
 
 /** Run an op via the oracle, returning the output bytes. Canonicalize-class ops throw `CanonReject` on failure;
  *  the verify ops encode failure in their returned envelope (matching the Rust core's `run_op`). */
@@ -421,6 +456,103 @@ function oracleRun(c: Case, input: Buffer): Uint8Array {
       return enc.encode(
         ok ? OK_ENVELOPE : '{"ok":false,"error":{"code":"CONSISTENCY_PROOF_INVALID"}}',
       );
+    }
+    case "dsse_pae": {
+      const req = JSON.parse(input.toString("utf8")) as { payload_type: string; body_b64: string };
+      return pae(req.payload_type, fromB64(req.body_b64));
+    }
+    case "ed25519_verify": {
+      const req = JSON.parse(input.toString("utf8")) as {
+        pubkey_hex: string;
+        msg_hex: string;
+        sig_hex: string;
+      };
+      // Key problems → SIG_MALFORMED_KEY; signature problems → SIG_INVALID (matching the Rust op's mapping).
+      let pubkey: Uint8Array;
+      try {
+        pubkey = hexToBytes(req.pubkey_hex);
+        if (pubkey.length !== 32) return errEnvelope("SIG_MALFORMED_KEY");
+        ed25519.Point.fromHex(pubkey); // on-curve check
+      } catch {
+        return errEnvelope("SIG_MALFORMED_KEY");
+      }
+      let sig: Uint8Array;
+      try {
+        sig = hexToBytes(req.sig_hex);
+      } catch {
+        return errEnvelope("SIG_INVALID");
+      }
+      if (sig.length !== 64) return errEnvelope("SIG_INVALID");
+      let ok = false;
+      try {
+        // zip215:false = RFC 8032 strict (cofactorless), the closest equivalent to dalek's verify_strict.
+        ok = ed25519.verify(sig, hexToBytes(req.msg_hex), pubkey, { zip215: false });
+      } catch {
+        ok = false;
+      }
+      return ok ? enc.encode(OK_ENVELOPE) : errEnvelope("SIG_INVALID");
+    }
+    case "did_key_decode": {
+      try {
+        const pubkey = resolveKey(input.toString("utf8"));
+        ed25519.Point.fromHex(pubkey);
+        return enc.encode(bytesToHex(pubkey));
+      } catch {
+        return errEnvelope("SIG_MALFORMED_KEY");
+      }
+    }
+    case "dsse_verify_envelope": {
+      const req = JSON.parse(input.toString("utf8")) as {
+        envelope: {
+          payload: string;
+          payloadType: string;
+          signatures: Array<{ keyid: string; sig: string }>;
+        };
+        keys: string[];
+      };
+      const env = req.envelope;
+      if (env.payloadType !== DSSE_PAYLOAD_TYPE) return errEnvelope("DSSE_PAYLOAD_TYPE_MISMATCH");
+      const payload = fromB64(env.payload);
+      const paeBytes = pae(env.payloadType, payload);
+      const keys: Uint8Array[] = [];
+      for (const k of req.keys) {
+        try {
+          keys.push(resolveKey(k));
+        } catch {
+          return errEnvelope("SIG_MALFORMED_KEY");
+        }
+      }
+      for (const s of env.signatures) {
+        const sig = fromB64(s.sig);
+        if (sig.length !== 64) continue;
+        for (const pk of keys) {
+          try {
+            if (ed25519.verify(sig, paeBytes, pk, { zip215: false })) return payload;
+          } catch {
+            /* try the next key */
+          }
+        }
+      }
+      return errEnvelope("SIG_INVALID");
+    }
+    case "sign_statement": {
+      const req = JSON.parse(input.toString("utf8")) as {
+        seed_hex: string;
+        keyid: string;
+        statement: unknown;
+      };
+      const canonStmt = canonicalize(req.statement);
+      if (typeof canonStmt !== "string") throw new Error(`${c.id}: statement not canonicalizable`);
+      const payload = enc.encode(canonStmt);
+      const sig = ed25519.sign(pae(DSSE_PAYLOAD_TYPE, payload), hexToBytes(req.seed_hex));
+      const envelope = {
+        payload: toB64(payload),
+        payloadType: DSSE_PAYLOAD_TYPE,
+        signatures: [{ keyid: req.keyid, sig: toB64(sig) }],
+      };
+      const canonEnv = canonicalize(envelope);
+      if (typeof canonEnv !== "string") throw new Error(`${c.id}: envelope not canonicalizable`);
+      return enc.encode(canonEnv);
     }
     default:
       throw new Error(`${c.id}: oracle does not know op ${c.op}`);

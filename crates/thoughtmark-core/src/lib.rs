@@ -38,11 +38,14 @@ extern crate std;
 mod base64;
 pub mod canon;
 pub mod determinism;
+pub mod did_key;
+pub mod dsse;
 pub mod envelope;
 pub mod error;
 mod hex;
 pub mod merkle;
 pub mod ops;
+pub mod sign;
 mod wire;
 
 pub use canon::{
@@ -50,8 +53,11 @@ pub use canon::{
     hash_with,
 };
 pub use determinism::{Clock, Csprng, Rng, UnixMillis};
+pub use did_key::{decode_did_key, encode_did_key};
+pub use dsse::{DSSE_PAYLOAD_TYPE, DsseEnvelope, EnvSig, pae};
 pub use error::{Error, ErrorCode, Result};
 pub use merkle::{
     ConsistencyProof, InclusionProof, TreeHash, TreeState, merkle_tree_hash, verify_consistency,
     verify_inclusion,
 };
+pub use sign::{Signature, Signer, TmSigner, VerifyingKey, verify, verify_envelope};
