@@ -1,7 +1,7 @@
 {
-  "vectors_version": "0.5.0",
+  "vectors_version": "0.6.0",
   "canon_version": "tm-jcs-1",
-  "vector_count": 49,
+  "vector_count": 51,
   "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
   "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG).",
   "cases": [
@@ -244,6 +244,13 @@
       "expected": "checkpoint/0002/checkpoint.json"
     },
     {
+      "id": "bundle/0001",
+      "spec_req": "BUNDLE-1",
+      "op": "bundle_check",
+      "input": "bundle/0001/bundle.json",
+      "expected": "bundle/0001/ok.txt"
+    },
+    {
       "id": "negative/0001",
       "spec_req": "CANON-4",
       "op": "canonicalize",
@@ -362,6 +369,14 @@
       "input": "negative/0015/input.json",
       "expect_error": "CHECKPOINT_SIGNATURE_INVALID",
       "expected_code": "negative/0015/expected_code.txt"
+    },
+    {
+      "id": "negative/0016",
+      "spec_req": "BUNDLE-1",
+      "op": "bundle_check",
+      "input": "negative/0016/input.json",
+      "expect_error": "BUNDLE_SCHEMA_INVALID",
+      "expected_code": "negative/0016/expected_code.txt"
     }
   ]
 }

@@ -51,6 +51,18 @@ pub enum ErrorCode {
     DssePayloadTypeMismatch,
     /// A checkpoint (signed note) carried no signature line that matched a known key (or was malformed).
     CheckpointSignatureInvalid,
+    /// An anchor receipt was structurally malformed.
+    AnchorReceiptMalformed,
+    /// An anchor receipt's root did not match the checkpoint it claims to anchor.
+    AnchorRootMismatch,
+    /// An anchor's asserted time was implausible.
+    AnchorTimeImplausible,
+    /// An anchor receipt named a kind this build does not support.
+    AnchorUnsupportedKind,
+    /// A `ThoughtmarkBundle` was structurally malformed (bad media type / canon version / shape).
+    BundleSchemaInvalid,
+    /// A `ThoughtmarkBundle` declared a `bundle_version` this build does not support.
+    BundleVersionUnsupported,
     /// An internal invariant was violated (a static, content-free site tag, never runtime/secret data).
     Internal,
 }
@@ -75,6 +87,12 @@ impl ErrorCode {
             ErrorCode::DsseBadEnvelope => "DSSE_BAD_ENVELOPE",
             ErrorCode::DssePayloadTypeMismatch => "DSSE_PAYLOAD_TYPE_MISMATCH",
             ErrorCode::CheckpointSignatureInvalid => "CHECKPOINT_SIGNATURE_INVALID",
+            ErrorCode::AnchorReceiptMalformed => "ANCHOR_RECEIPT_MALFORMED",
+            ErrorCode::AnchorRootMismatch => "ANCHOR_ROOT_MISMATCH",
+            ErrorCode::AnchorTimeImplausible => "ANCHOR_TIME_IMPLAUSIBLE",
+            ErrorCode::AnchorUnsupportedKind => "ANCHOR_UNSUPPORTED_KIND",
+            ErrorCode::BundleSchemaInvalid => "BUNDLE_SCHEMA_INVALID",
+            ErrorCode::BundleVersionUnsupported => "BUNDLE_VERSION_UNSUPPORTED",
             ErrorCode::Internal => "INTERNAL",
         }
     }
@@ -114,6 +132,12 @@ pub enum Error {
     /// A DSSE envelope was invalid.
     #[error("DSSE envelope invalid")]
     Dsse(ErrorCode),
+    /// An anchor receipt was invalid.
+    #[error("anchor receipt invalid")]
+    Anchor(ErrorCode),
+    /// A bundle was structurally invalid.
+    #[error("bundle invalid")]
+    Bundle(ErrorCode),
     /// An internal invariant was violated; the `'static` tag is a code site, never runtime/secret data.
     #[error("internal invariant violated")]
     Internal(&'static str),
@@ -130,7 +154,9 @@ impl Error {
             | Error::Inclusion(c)
             | Error::Consistency(c)
             | Error::Signature(c)
-            | Error::Dsse(c) => *c,
+            | Error::Dsse(c)
+            | Error::Anchor(c)
+            | Error::Bundle(c) => *c,
             Error::Internal(_) => ErrorCode::Internal,
         }
     }
@@ -146,6 +172,8 @@ impl Error {
             Error::Consistency(_) => "merkle consistency proof invalid",
             Error::Signature(_) => "signature verification failed",
             Error::Dsse(_) => "DSSE envelope invalid",
+            Error::Anchor(_) => "anchor receipt invalid",
+            Error::Bundle(_) => "bundle invalid",
             Error::Internal(tag) => tag,
         }
     }

@@ -35,7 +35,9 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod anchor;
 mod base64;
+pub mod bundle;
 pub mod canon;
 pub mod checkpoint;
 pub mod determinism;
@@ -49,6 +51,8 @@ pub mod ops;
 pub mod sign;
 mod wire;
 
+pub use anchor::{AnchorKind, AnchorReceipt, AnchorVerdict, AnchorVerifier};
+pub use bundle::{BUNDLE_MEDIA_TYPE, BUNDLE_VERSION, ThoughtmarkBundle};
 pub use canon::{
     CANON_VERSION, CanonError, Digest, HashAlg, canonicalize, canonicalize_str, hash, hash_domain,
     hash_with,

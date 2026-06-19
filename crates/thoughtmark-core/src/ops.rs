@@ -11,6 +11,7 @@
 //! the RAW blob; `hash_domain_*` → 64 hex bytes of the domain-separated hash (binding `CANON_VERSION` into the
 //! preimage).
 
+use crate::bundle::ThoughtmarkBundle;
 use crate::canon::{self, HashAlg};
 use crate::checkpoint::{self, Checkpoint};
 use crate::dsse::{self, DsseEnvelope};
@@ -53,6 +54,7 @@ fn dispatch(op: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
         "sign_statement" => op_sign_statement(input),
         "checkpoint_body" => op_checkpoint_body(input),
         "checkpoint_verify" => op_checkpoint_verify(input),
+        "bundle_check" => op_bundle_check(input),
         _ => Err(Error::internal("ops.unknown_op")),
     }
 }
@@ -275,6 +277,15 @@ fn op_checkpoint_verify(input: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(canon::canonicalize(&cp)?)
 }
 
+/// A `ThoughtmarkBundle` JSON → success envelope if its shape is valid (media type / version / canon version), else
+/// the appropriate error. This is the STRUCTURAL gate; the cryptographic `verify()` is a later phase.
+fn op_bundle_check(input: &[u8]) -> Result<Vec<u8>, Error> {
+    let bundle: ThoughtmarkBundle =
+        serde_json::from_slice(input).map_err(|_| Error::Bundle(ErrorCode::BundleSchemaInvalid))?;
+    bundle.validate_shape()?;
+    Ok(success_envelope())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -331,6 +342,15 @@ mod tests {
         assert_eq!(
             out,
             br#"{"ok":false,"error":{"code":"MERKLE_PROOF_INVALID"}}"#
+        );
+    }
+
+    #[test]
+    fn bundle_check_malformed_is_schema_invalid() {
+        let out = run_op("bundle_check", br#"{"media_type":"application/json"}"#);
+        assert_eq!(
+            out,
+            br#"{"ok":false,"error":{"code":"BUNDLE_SCHEMA_INVALID"}}"#
         );
     }
 

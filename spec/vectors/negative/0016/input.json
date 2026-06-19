@@ -1,0 +1,29 @@
+{
+  "bundle_version": 1,
+  "canon_version": "tm-jcs-1",
+  "checkpoint": "dGhvdWdodG1hcmsuZGV2L2xvZy9idW5kbGUtZGVtbwoxCnVaVzYxR21IVnJaYUdoeDBSSUVXNjFSLzZWTU5uMjBZck90ZkQzSXdncXc9CuKAlCB0aG91Z2h0bWFyay5kZXYvbG9nL2J1bmRsZS1kZW1vIFNjSEN3UHFKZUZuTjNIWGRoVWVjYXFPbU53SldMSFJ0THcvTzREQS9SRGVvM1F0bkhvQzYyMUlDbEJSaW50S1JJOVpqQnhLc1pOZ0JrOEI5SVdKeUxyUzcwZ2M9Cg==",
+  "envelope": {
+    "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiZGVtbyI6dHJ1ZX0sInByZWRpY2F0ZVR5cGUiOiJodHRwczovL3Rob3VnaHRtYXJrLmRldi9Qcm92ZW5hbmNlL3YxIiwic3ViamVjdCI6W3siZGlnZXN0Ijp7ImJsYWtlMyI6IjAwIiwic2hhMjU2IjoiMTEifSwibmFtZSI6InRyYWlsOmJ1bmRsZS1kZW1vQDEifV19",
+    "payloadType": "application/vnd.in-toto+json",
+    "signatures": [
+      {
+        "keyid": "did:key:z6MktojHN9D8obak7C9wjpTzCRrdE5zC6cxt5ANUFnQskgbs",
+        "sig": "gTjb86VVIF7NbmeGHvljpk0S2yaTfWR9aoInmMW/JpN+x286lNEVidU3Yhn5pjT5WREaNTDdJ7X1mBLptdGbCQ=="
+      }
+    ]
+  },
+  "inclusion": {
+    "leaf_index": "0",
+    "path": [],
+    "tree_size": "1"
+  },
+  "media_type": "application/json",
+  "verification_material": {
+    "verification_methods": [
+      {
+        "id": "did:key:z6MktojHN9D8obak7C9wjpTzCRrdE5zC6cxt5ANUFnQskgbs",
+        "public_key_multibase": "z6MktojHN9D8obak7C9wjpTzCRrdE5zC6cxt5ANUFnQskgbs"
+      }
+    ]
+  }
+}

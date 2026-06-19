@@ -657,6 +657,32 @@ function oracleRun(c: Case, input: Buffer): Uint8Array {
       if (typeof canonCp !== "string") throw new Error(`${c.id}: checkpoint not canonicalizable`);
       return enc.encode(canonCp);
     }
+    case "bundle_check": {
+      const b = JSON.parse(input.toString("utf8")) as {
+        media_type?: unknown;
+        bundle_version?: unknown;
+        canon_version?: unknown;
+        envelope?: unknown;
+        inclusion?: unknown;
+        verification_material?: unknown;
+        checkpoint?: unknown;
+      };
+      // Structural gate (mirrors the Rust op): required fields present, then media-type / version / canon checks.
+      if (
+        b.envelope === undefined ||
+        b.inclusion === undefined ||
+        b.verification_material === undefined ||
+        b.checkpoint === undefined
+      ) {
+        return errEnvelope("BUNDLE_SCHEMA_INVALID");
+      }
+      if (b.media_type !== "application/vnd.thoughtmark.bundle.v1+json") {
+        return errEnvelope("BUNDLE_SCHEMA_INVALID");
+      }
+      if (b.bundle_version !== 1) return errEnvelope("BUNDLE_VERSION_UNSUPPORTED");
+      if (b.canon_version !== "tm-jcs-1") return errEnvelope("UNKNOWN_CANON_VERSION");
+      return enc.encode(OK_ENVELOPE);
+    }
     default:
       throw new Error(`${c.id}: oracle does not know op ${c.op}`);
   }

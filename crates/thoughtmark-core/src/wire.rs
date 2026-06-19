@@ -44,3 +44,21 @@ pub(crate) mod dec_u64 {
         chars.all(|c| c.is_ascii_digit())
     }
 }
+
+/// `serde` adapter for opaque bytes carried as STANDARD-padded base64 (anchor proofs, checkpoint bytes) — never a
+/// JSON number array.
+pub(crate) mod bytes_b64 {
+    use alloc::vec::Vec;
+    use serde::{Deserializer, Serializer};
+
+    pub(crate) fn serialize<S: Serializer>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&crate::base64::encode_std(bytes))
+    }
+
+    pub(crate) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Vec<u8>, D::Error> {
+        let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
+        crate::base64::decode_any(s).ok_or_else(|| serde::de::Error::custom("invalid base64"))
+    }
+}

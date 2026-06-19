@@ -36,7 +36,32 @@ fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
             }
             bless(&PathBuf::from(dir.unwrap_or("spec/vectors")), check)
         }
-        _ => Err("usage: tm bless [--check] [DIR]".into()),
+        Some("bundle-check") => {
+            let file = args.get(2).ok_or("usage: tm bundle-check FILE")?;
+            bundle_check(&PathBuf::from(file))
+        }
+        Some("verify") => {
+            // The full cryptographic verify() pipeline is a later phase; bundle-check is the Phase-2 stand-in.
+            Err("tm verify: not implemented (Phase 3). Use `tm bundle-check FILE` for the structural check.".into())
+        }
+        _ => Err("usage: tm bless [--check] [DIR] | tm bundle-check FILE".into()),
+    }
+}
+
+/// Structurally validate a `ThoughtmarkBundle` JSON file via the core `bundle_check` op (media type / version /
+/// canon version). NOT the full cryptographic `verify()` — that is a later phase.
+fn bundle_check(file: &Path) -> Result<(), Box<dyn Error>> {
+    let bytes = fs::read(file)?;
+    let out = thoughtmark_core::ops::run_op("bundle_check", &bytes);
+    match extract_code(&out) {
+        None => {
+            println!(
+                "{}: structurally valid (media type / version / canon version ok).",
+                file.display()
+            );
+            Ok(())
+        }
+        Some(code) => Err(format!("{}: bundle invalid ({code})", file.display()).into()),
     }
 }
 

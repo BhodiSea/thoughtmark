@@ -5,6 +5,20 @@ The corpus is versioned independently from the code (its own SemVer in `VERSION`
 MAJOR corpus release. Three version axes are never conflated: code SemVer, corpus SemVer, and the format
 identifiers baked into hashed bytes (arch P4).
 
+## [0.6.0] — Phase 2 (M5): the ThoughtmarkBundle corpus (additive)
+
+- **`bundle_check`** (`bundle/0001`, BUNDLE-1): a COMPLETE assembled bundle — a DSSE-signed in-toto Statement, its
+  Merkle inclusion proof, and a signed C2SP checkpoint, with offline `verification_material` — passes the
+  structural gate (`media_type = application/vnd.thoughtmark.bundle.v1+json`, `bundle_version = 1`,
+  `canon_version = tm-jcs-1`). A wrong media type fails closed with `BUNDLE_SCHEMA_INVALID` (`negative/0016`).
+- This is the **structural** gate only; the full cryptographic `verify()` (replaying the inclusion proof,
+  checkpoint signature, and DSSE envelope) is a later phase. `tm bundle-check FILE` exposes it on the CLI.
+- The `core::anchor` seam types (`AnchorReceipt`/`AnchorKind`/`AnchorStatus`/`AnchorVerdict`/`CheckpointRef` +
+  `AnchorVerifier` trait, opaque `proof` bytes) land as types-only (ADR-0008); `bundle.anchors` stays empty until a
+  later phase populates it.
+- **Additive only** — `vector_count` 49 → 51, a MINOR corpus release. This completes the four frozen
+  format-identifier values (`predicateType`, `canon_version`, DSSE `payloadType`, bundle `media_type`).
+
 ## [0.5.0] — Phase 2 (M4): the C2SP checkpoint corpus (additive)
 
 - **`checkpoint_body`** (`checkpoint/0001`, LOG-4): the deterministic signed-note text body
