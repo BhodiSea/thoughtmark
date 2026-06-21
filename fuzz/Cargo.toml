@@ -32,3 +32,31 @@ path = "fuzz_targets/cid.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "merkle_verify"
+path = "fuzz_targets/merkle_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "consistency_verify"
+path = "fuzz_targets/consistency_verify.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dsse_parse"
+path = "fuzz_targets/dsse_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "did_key"
+path = "fuzz_targets/did_key.rs"
+test = false
+doc = false
+bench = false

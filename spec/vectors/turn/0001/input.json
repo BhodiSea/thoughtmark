@@ -1,0 +1,27 @@
+{
+  "schema_version": { "major": 1, "minor": 0, "patch": 0 },
+  "canon_version": "tm-jcs-1",
+  "sequence": 0,
+  "role": "human",
+  "content": [
+    {
+      "kind": "content",
+      "media_type": "text/plain",
+      "body": {
+        "kind": "hashed",
+        "alg": "blake3",
+        "digest_hex": "7e124c2c612c5f92bba9575c4421d8587885ec144b2440ad9fadfcbf3878e59d"
+      }
+    }
+  ],
+  "parents": [],
+  "ledger": {
+    "entries": [
+      {
+        "action": "create",
+        "attributed_to": { "id": "did:key:z6MkInvestigator" },
+        "attested_at": "1750000000000"
+      }
+    ]
+  }
+}

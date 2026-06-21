@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+# Gitleaks config — local mirror of GitHub-native secret scanning (the authoritative control). Keeps the FULL
+# default ruleset active across the whole tree and adds ONE narrowly-scoped allowlist: the deterministic Tier-0
+# conformance corpus under spec/vectors/. Auto-discovered by `gitleaks detect --source .` (no --config needed),
+# so the human-gated .github/workflows/gitleaks.yml is untouched.
+title = "thoughtmark gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+spec/vectors/ is the PUBLIC Tier-0 conformance corpus, not a secret store: RFC 8032 / Wycheproof Ed25519
+keypairs (pubkey_hex / sig_hex), DSSE + checkpoint signatures (note_b64), Merkle leaves, and fixed signing
+seeds (seed_hex, e.g. 0707…0707). Public keys and signatures are public by definition; the seeds are
+deterministic test fixtures fed to TmSigner::from_seed, never production key material. Nothing sensitive is
+ever stored here (I5: salted commitments only; no plaintext on-ledger). These high-entropy hex/base64 strings
+trip gitleaks' default entropy rules as false positives.
+"""
+paths = ['''spec/vectors/.*''']

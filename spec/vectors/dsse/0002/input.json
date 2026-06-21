@@ -1,0 +1,20 @@
+{
+  "keyid": "did:key:z6MkvDqGT54cXesYGvABpF1UapVNwjCqRcafi4Px6Thv5T3Z",
+  "seed_hex": "0707070707070707070707070707070707070707070707070707070707070707",
+  "statement": {
+    "_type": "https://in-toto.io/Statement/v1",
+    "predicate": {
+      "hello": "world"
+    },
+    "predicateType": "https://thoughtmark.dev/Provenance/v1",
+    "subject": [
+      {
+        "digest": {
+          "blake3": "00",
+          "sha256": "11"
+        },
+        "name": "trail:demo@1"
+      }
+    ]
+  }
+}

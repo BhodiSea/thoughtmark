@@ -56,6 +56,22 @@ impl HashAlg {
     }
 }
 
+impl serde::Serialize for HashAlg {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HashAlg {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        // Fail-closed: an unknown token carries the stable `UNKNOWN_HASH_ALG` code in the serde error.
+        let token = <&str as serde::Deserialize>::deserialize(deserializer)?;
+        HashAlg::from_token(token).ok_or_else(|| {
+            serde::de::Error::custom(crate::error::ErrorCode::UnknownHashAlg.as_str())
+        })
+    }
+}
+
 /// A 32-byte content digest tagged with the algorithm that produced it. `Copy`, no allocation.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Digest {
@@ -149,8 +165,9 @@ pub fn hash(bytes: &[u8]) -> Digest {
 }
 
 /// SHA-256 into a fixed array. The output length is statically 32, so the `copy_from_slice` cannot panic (it runs
-/// only behind the length guard); the impossible mismatch leaves a zeroed array rather than panicking.
-fn sha256_array(bytes: &[u8]) -> [u8; 32] {
+/// only behind the length guard); the impossible mismatch leaves a zeroed array rather than panicking. Shared with
+/// the Merkle module (RFC 6962 is SHA-256-only, ADR-0013).
+pub(crate) fn sha256_array(bytes: &[u8]) -> [u8; 32] {
     use sha2::Digest as _;
     let computed = sha2::Sha256::digest(bytes);
     let mut out = [0u8; 32];

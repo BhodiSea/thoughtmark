@@ -49,6 +49,7 @@ ci-wasm:
     [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
     wasm-pack build crates/thoughtmark-wasm --target web \
       --out-dir ../../packages/core/wasm --out-name thoughtmark_wasm
+    ./scripts/assert-wasm-blake3.sh
 
 # TS conformance gate (depends on the wasm artifact from ci-wasm).
 ci-ts:

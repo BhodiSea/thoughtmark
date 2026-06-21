@@ -1,6 +1,11 @@
 # thoughtmark — Normative Specification
 
-**Status:** Draft (Phase 0). No wire-format freeze yet (that lands at the end of Phase 2).
+**Status:** Phase 2 — **wire-format freeze CANDIDATE**. The four format-identifier values are implemented and
+pinned across all four conformance executors (native Rust, WASM/Node, the pure-TS oracle, and — once the human
+wires the CI job — WASM/3-browsers): `canon_version = "tm-jcs-1"`,
+`predicateType = "https://thoughtmark.dev/Provenance/v1"`, DSSE `payloadType = "application/vnd.in-toto+json"`,
+and bundle `media_type = "application/vnd.thoughtmark.bundle.v1+json"`. From here, changing any hashed byte
+requires a NEW format-identifier value + a MAJOR corpus release (add `canon_v2`, never mutate `canon_v1`).
 **License:** Apache-2.0.
 
 ## 1. Conformance language
@@ -57,10 +62,51 @@ Output byte-identity is the master requirement:
 ### 3.4 Signatures (SIG)
 
 - **SIG-1** — Ed25519 verification **MUST** use `verify_strict` (rejecting non-canonical / small-order inputs).
+- **SIG-2** — The DSSE Pre-Authentication Encoding **MUST** be `"DSSEv1" SP LEN(type) SP type SP LEN(body) SP body`,
+  where `SP` is `0x20`, `LEN` is ASCII decimal with no leading zeros, `type` is `"application/vnd.in-toto+json"`,
+  and `body` is the **raw JCS bytes** of the Statement (never base64). The signature is over these PAE bytes.
+- **SIG-3** — DSSE envelope verification **MUST** reject a `payloadType` other than `"application/vnd.in-toto+json"`
+  and **MUST** require at least one signature to verify; the `payload` is read as standard **or** url-safe base64.
+- **SIG-4** — A `did:key` **MUST** decode offline: multibase `z`/base58btc, Ed25519 multicodec `0xed 0x01`, exactly
+  32 on-curve key bytes. A malformed, short, or off-curve key **MUST** fail closed (`SIG_MALFORMED_KEY`).
+- **SIG-5** — A sealed turn **MUST** carry exactly one DSSE signature (ADR-0007).
 
-### 3.5 Transparency log (LOG) — *reserved, Phase 2*
+### 3.5 Transparency log (LOG) — *Phase 2*
 
-- **LOG-1** — Merkle tree hashing **MUST** follow RFC 6962 leaf/node domain separation. *(No vectors until Phase 2.)*
+- **LOG-1** — Merkle tree hashing **MUST** follow RFC 6962 leaf/node domain separation: `hash_leaf = SHA-256(0x00 ‖
+  leaf)`, `hash_children = SHA-256(0x01 ‖ left ‖ right)`, `empty_root = SHA-256("")`. The tree is **always**
+  SHA-256 and carries no algorithm tag (distinct from a content `Digest`).
+- **LOG-2** — `merkle_tree_hash` **MUST** split at the largest power of two strictly less than `n`
+  (`k = 1 << (BITS-1 - (n-1).leading_zeros())`), and inclusion proofs **MUST** verify per RFC 9162 §2.1.3.1 with an
+  exact path-length check (rejecting both too-long and too-short proofs).
+- **LOG-3** — Consistency proofs **MUST** verify per RFC 9162 §2.1.4.2 by recomputing **both** the old and the new
+  root and comparing each.
+- **LOG-4** — A checkpoint **MUST** be a C2SP signed note: the signature line is prefixed by an em-dash and a space
+  (U+2014, `0x20`), the key-hash is `SHA-256(keyname ‖ 0x0A ‖ 0x01 ‖ pubkey32)[..4]`, and verification **MUST**
+  require at least one signature line to match a known key (unknown lines are ignored).
+- **LOG-5** — Public-log tiles **MUST** follow the C2SP `tlog-tiles` layout (height-8 / 256-hash tiles; the
+  `x`-prefixed three-digit-group index encoding).
+
+### 3.6 Reasoning-trail schema (SCHEMA) — *Phase 2*
+
+- **SCHEMA-1** — Every wire struct **MUST** canonicalize float-free with `deny_unknown_fields`: each `Digest` is the
+  object `{"alg","bytes_hex"}`, every time is a decimal string, fixed-point params are integers (`*_milli`), and a
+  salted commitment **MUST NOT** carry its salt on-ledger (no `salt_hex`).
+- **SCHEMA-2** — `turn_id` **MUST** equal `hash_domain(BLAKE3, "thoughtmark.turn", canonicalize(turn))`; the
+  manifest id **MUST** use the `"thoughtmark.manifest"` domain.
+- **SCHEMA-3** — `trail_root` **MUST** be the dual `{"blake3","sha256"}` lowercase-hex map of
+  `hash_domain(alg, "thoughtmark.object", canonicalize(trail))`.
+- **SCHEMA-4** — An in-toto Statement **MUST** carry `_type = "https://in-toto.io/Statement/v1"`,
+  `predicateType = "https://thoughtmark.dev/Provenance/v1"`, and `subject[].name = "trail:<trail_id>@<tree_size>"`
+  with a dual `{blake3,sha256}` digest map.
+- **SCHEMA-5** — `canon_version = "tm-jcs-1"` **MUST** be bound inside every preimage; an unknown canon version
+  **MUST** fail closed (`UNKNOWN_CANON_VERSION`), never best-effort recompute.
+
+### 3.7 Bundle (BUNDLE) — *Phase 2*
+
+- **BUNDLE-1** — A `ThoughtmarkBundle` **MUST** carry `media_type = "application/vnd.thoughtmark.bundle.v1+json"`
+  and a `u16` `bundle_version`; an unsupported version **MUST** fail closed (`BUNDLE_VERSION_UNSUPPORTED`) and a
+  malformed shape **MUST** fail closed (`BUNDLE_SCHEMA_INVALID`).
 
 ## 4. The error envelope
 
@@ -73,9 +119,17 @@ shown), where `<CODE>` is a stable SCREAMING_SNAKE_CASE `ErrorCode`:
 
 The Tier-0 codes are `CANON_INVALID_JSON`, `CANON_NON_DETERMINISTIC_FLOAT`, `CANON_INTEGER_OUT_OF_RANGE`,
 `UNKNOWN_CANON_VERSION`, `UNKNOWN_HASH_ALG`, `DIGEST_MISMATCH`, `CID_MALFORMED`, and `INTERNAL` (the catch-all for
-an internal invariant; it never carries record or secret data). Codes are **append-only**; each token is normative
-and appears in the negative `spec/vectors/` cases. Negative vectors assert that both engines return the same code,
-fail-closed (CORE-2).
+an internal invariant; it never carries record or secret data).
+
+The Tier-1 codes (Phase 2), appended in order, are `SIG_INVALID`, `SIG_MALFORMED_KEY`, `DSSE_BAD_ENVELOPE`,
+`DSSE_PAYLOAD_TYPE_MISMATCH`, `STATEMENT_SUBJECT_MISMATCH`, `PREDICATE_SCHEMA_INVALID`, `MERKLE_PROOF_INVALID`,
+`MERKLE_INDEX_OUT_OF_RANGE`, `CONSISTENCY_PROOF_INVALID`, `CHECKPOINT_SIGNATURE_INVALID`,
+`ANCHOR_RECEIPT_MALFORMED`, `ANCHOR_ROOT_MISMATCH`, `ANCHOR_TIME_IMPLAUSIBLE`, `ANCHOR_UNSUPPORTED_KIND`,
+`LEDGER_BROKEN_LINK`, `LEDGER_NON_MONOTONIC_TIME`, `REDACT_TARGET_NOT_FOUND`, `BUNDLE_SCHEMA_INVALID`,
+`BUNDLE_VERSION_UNSUPPORTED`, and `POLICY_UNSATISFIED`.
+
+Codes are **append-only**; each token is normative and appears in the negative `spec/vectors/` cases. Negative
+vectors assert that both engines return the same code, fail-closed (CORE-2).
 
 [RFC 2119]: https://www.rfc-editor.org/info/rfc2119
 [RFC 8174]: https://www.rfc-editor.org/info/rfc8174

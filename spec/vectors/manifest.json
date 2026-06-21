@@ -1,9 +1,13 @@
 {
-  "vectors_version": "0.1.0",
+  "vectors_version": "0.7.0",
   "canon_version": "tm-jcs-1",
-  "vector_count": 15,
-  "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
-  "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG).",
+  "vector_count": 106,
+  "toolchain": {
+    "rustc": "1.96.0",
+    "wasm_bindgen": "0.2.125",
+    "wasm_opt": "disabled"
+  },
+  "description": "Tier-0 conformance corpus: real canon/hash/cid output, blessed once from the native Rust core (`tm bless`) and frozen. Each case maps 1:1 to a `run_op(op, input)` call; positive cases compare output bytes to `expected`, negatives assert the embedded ErrorCode equals `expect_error` (fail-closed). Hashing is canonicalize-then-hash (I2); the plain `hash_*` preimage is `canonicalize(input)` with NO domain prefix, while `hash_domain_*` binds `CANON_VERSION` + domain. A changed expected byte is a BREAKING corpus release (bump VERSION + CHANGELOG). Determinism: every case is a pure function of its `input` bytes — no op reads ambient time or RNG, so cases carry NO per-case `env` block; signing determinism is supplied INLINE (a fixed `seed_hex` in each signing case's input, fed to `TmSigner::from_seed`), which is why the roadmap's injected `FixedClock`/`VectorCsprng` env is unnecessary here.",
   "cases": [
     {
       "id": "canon/0001",
@@ -34,6 +38,34 @@
       "expected": "canon/0004/expected.bin"
     },
     {
+      "id": "canon/0005",
+      "spec_req": "CANON-1",
+      "op": "canonicalize",
+      "input": "canon/0005/input.json",
+      "expected": "canon/0005/expected.bin"
+    },
+    {
+      "id": "canon/0006",
+      "spec_req": "CANON-3",
+      "op": "canonicalize",
+      "input": "canon/0006/input.json",
+      "expected": "canon/0006/expected.bin"
+    },
+    {
+      "id": "canon/0007",
+      "spec_req": "CANON-3",
+      "op": "canonicalize",
+      "input": "canon/0007/input.json",
+      "expected": "canon/0007/expected.bin"
+    },
+    {
+      "id": "canon/0008",
+      "spec_req": "CANON-3",
+      "op": "canonicalize",
+      "input": "canon/0008/input.json",
+      "expected": "canon/0008/expected.bin"
+    },
+    {
       "id": "hash/0001:blake3",
       "spec_req": "HASH-1",
       "op": "hash_blake3",
@@ -55,6 +87,27 @@
       "expected": "cid/0001/expected.txt"
     },
     {
+      "id": "cid/0002",
+      "spec_req": "CID-1",
+      "op": "cid_v1",
+      "input": "cid/0002/input.bin",
+      "expected": "cid/0002/expected.txt"
+    },
+    {
+      "id": "cid/0003",
+      "spec_req": "CID-1",
+      "op": "cid_v1",
+      "input": "cid/0003/input.bin",
+      "expected": "cid/0003/expected.txt"
+    },
+    {
+      "id": "cid/0004",
+      "spec_req": "CID-1",
+      "op": "cid_v1",
+      "input": "cid/0004/input.bin",
+      "expected": "cid/0004/expected.txt"
+    },
+    {
       "id": "domain/0001",
       "spec_req": "HASH-2",
       "op": "hash_domain_turn",
@@ -74,6 +127,335 @@
       "op": "hash_domain_manifest",
       "input": "domain/0003/input.json",
       "expected": "domain/0003/expected.hex"
+    },
+    {
+      "id": "turn/0001",
+      "spec_req": "SCHEMA-2",
+      "op": "hash_domain_turn",
+      "input": "turn/0001/input.json",
+      "expected": "turn/0001/turn_id.hex"
+    },
+    {
+      "id": "turn/0002",
+      "spec_req": "SCHEMA-2",
+      "op": "hash_domain_turn",
+      "input": "turn/0002/input.json",
+      "expected": "turn/0002/turn_id.hex"
+    },
+    {
+      "id": "manifest/0001",
+      "spec_req": "SCHEMA-2",
+      "op": "hash_domain_manifest",
+      "input": "manifest/0001/input.json",
+      "expected": "manifest/0001/manifest_id.hex"
+    },
+    {
+      "id": "trail/0001",
+      "spec_req": "SCHEMA-3",
+      "op": "trail_root",
+      "input": "trail/0001/input.json",
+      "expected": "trail/0001/trail_root.json"
+    },
+    {
+      "id": "statement/0001",
+      "spec_req": "SCHEMA-4",
+      "op": "canonicalize",
+      "input": "statement/0001/input.json",
+      "expected": "statement/0001/expected.bin"
+    },
+    {
+      "id": "merkle/0001",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0001/leaves.json",
+      "expected": "merkle/0001/root.txt"
+    },
+    {
+      "id": "merkle/0002",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0002/leaves.json",
+      "expected": "merkle/0002/root.txt"
+    },
+    {
+      "id": "merkle/0003",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0003/leaves.json",
+      "expected": "merkle/0003/root.txt"
+    },
+    {
+      "id": "merkle/0004",
+      "spec_req": "LOG-2",
+      "op": "merkle_root",
+      "input": "merkle/0004/leaves.json",
+      "expected": "merkle/0004/root.txt"
+    },
+    {
+      "id": "merkle/0005",
+      "spec_req": "LOG-2",
+      "op": "merkle_root",
+      "input": "merkle/0005/leaves.json",
+      "expected": "merkle/0005/root.txt"
+    },
+    {
+      "id": "merkle/0006",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0006/leaves.json",
+      "expected": "merkle/0006/root.txt"
+    },
+    {
+      "id": "merkle/0007",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0007/leaves.json",
+      "expected": "merkle/0007/root.txt"
+    },
+    {
+      "id": "merkle/0008",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0008/leaves.json",
+      "expected": "merkle/0008/root.txt"
+    },
+    {
+      "id": "merkle/0009",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0009/leaves.json",
+      "expected": "merkle/0009/root.txt"
+    },
+    {
+      "id": "merkle/0010",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0010/leaves.json",
+      "expected": "merkle/0010/root.txt"
+    },
+    {
+      "id": "merkle/0011",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0011/leaves.json",
+      "expected": "merkle/0011/root.txt"
+    },
+    {
+      "id": "merkle/0012",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0012/leaves.json",
+      "expected": "merkle/0012/root.txt"
+    },
+    {
+      "id": "merkle/0013",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0013/leaves.json",
+      "expected": "merkle/0013/root.txt"
+    },
+    {
+      "id": "merkle/0014",
+      "spec_req": "LOG-1",
+      "op": "merkle_root",
+      "input": "merkle/0014/leaves.json",
+      "expected": "merkle/0014/root.txt"
+    },
+    {
+      "id": "inclusion/0001",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "inclusion/0001/input.json",
+      "expected": "inclusion/0001/ok.txt"
+    },
+    {
+      "id": "inclusion/0002",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "inclusion/0002/input.json",
+      "expected": "inclusion/0002/ok.txt"
+    },
+    {
+      "id": "inclusion/0003",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "inclusion/0003/input.json",
+      "expected": "inclusion/0003/ok.txt"
+    },
+    {
+      "id": "inclusion/0004",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "inclusion/0004/input.json",
+      "expected": "inclusion/0004/ok.txt"
+    },
+    {
+      "id": "consistency/0001",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "consistency/0001/input.json",
+      "expected": "consistency/0001/ok.txt"
+    },
+    {
+      "id": "consistency/0002",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "consistency/0002/input.json",
+      "expected": "consistency/0002/ok.txt"
+    },
+    {
+      "id": "consistency/0003",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "consistency/0003/input.json",
+      "expected": "consistency/0003/ok.txt"
+    },
+    {
+      "id": "consistency/0004",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "consistency/0004/input.json",
+      "expected": "consistency/0004/ok.txt"
+    },
+    {
+      "id": "ed25519/0001",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0001/input.json",
+      "expected": "ed25519/0001/ok.txt"
+    },
+    {
+      "id": "ed25519/0002",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0002/input.json",
+      "expected": "ed25519/0002/ok.txt"
+    },
+    {
+      "id": "ed25519/0003",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0003/input.json",
+      "expected": "ed25519/0003/ok.txt"
+    },
+    {
+      "id": "ed25519/0004",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0004/input.json",
+      "expected": "ed25519/0004/ok.txt"
+    },
+    {
+      "id": "ed25519/0005",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0005/input.json",
+      "expected": "ed25519/0005/ok.txt"
+    },
+    {
+      "id": "ed25519/0006",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0006/input.json",
+      "expected": "ed25519/0006/ok.txt"
+    },
+    {
+      "id": "ed25519/0007",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0007/input.json",
+      "expected": "ed25519/0007/ok.txt"
+    },
+    {
+      "id": "ed25519/0008",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0008/input.json",
+      "expected": "ed25519/0008/ok.txt"
+    },
+    {
+      "id": "ed25519/0009",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0009/input.json",
+      "expected": "ed25519/0009/ok.txt"
+    },
+    {
+      "id": "ed25519/0010",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "ed25519/0010/input.json",
+      "expected": "ed25519/0010/ok.txt"
+    },
+    {
+      "id": "dsse/0001",
+      "spec_req": "SIG-2",
+      "op": "dsse_pae",
+      "input": "dsse/0001/input.json",
+      "expected": "dsse/0001/pae.bin"
+    },
+    {
+      "id": "dsse/0002",
+      "spec_req": "SIG-5",
+      "op": "sign_statement",
+      "input": "dsse/0002/input.json",
+      "expected": "dsse/0002/envelope.json"
+    },
+    {
+      "id": "dsse/0003",
+      "spec_req": "SIG-3",
+      "op": "dsse_verify_envelope",
+      "input": "dsse/0003/input.json",
+      "expected": "dsse/0003/payload.bin"
+    },
+    {
+      "id": "dsse/0004",
+      "spec_req": "SIG-2",
+      "op": "dsse_pae",
+      "input": "dsse/0004/input.json",
+      "expected": "dsse/0004/pae.bin"
+    },
+    {
+      "id": "dsse/0005",
+      "spec_req": "SIG-2",
+      "op": "dsse_pae",
+      "input": "dsse/0005/input.json",
+      "expected": "dsse/0005/pae.bin"
+    },
+    {
+      "id": "dsse/0006",
+      "spec_req": "SIG-2",
+      "op": "dsse_pae",
+      "input": "dsse/0006/input.json",
+      "expected": "dsse/0006/pae.bin"
+    },
+    {
+      "id": "did/0001",
+      "spec_req": "SIG-4",
+      "op": "did_key_decode",
+      "input": "did/0001/input.txt",
+      "expected": "did/0001/pubkey.hex"
+    },
+    {
+      "id": "checkpoint/0001",
+      "spec_req": "LOG-4",
+      "op": "checkpoint_body",
+      "input": "checkpoint/0001/input.json",
+      "expected": "checkpoint/0001/body.bin"
+    },
+    {
+      "id": "checkpoint/0002",
+      "spec_req": "LOG-4",
+      "op": "checkpoint_verify",
+      "input": "checkpoint/0002/input.json",
+      "expected": "checkpoint/0002/checkpoint.json"
+    },
+    {
+      "id": "bundle/0001",
+      "spec_req": "BUNDLE-1",
+      "op": "bundle_check",
+      "input": "bundle/0001/bundle.json",
+      "expected": "bundle/0001/ok.txt"
     },
     {
       "id": "negative/0001",
@@ -114,6 +496,302 @@
       "input": "negative/0005/input.json",
       "expect_error": "CANON_INTEGER_OUT_OF_RANGE",
       "expected_code": "negative/0005/expected_code.txt"
+    },
+    {
+      "id": "negative/0006",
+      "spec_req": "SCHEMA-1",
+      "op": "canonicalize",
+      "input": "negative/0006/input.json",
+      "expect_error": "CANON_NON_DETERMINISTIC_FLOAT",
+      "expected_code": "negative/0006/expected_code.txt"
+    },
+    {
+      "id": "negative/0007",
+      "spec_req": "SCHEMA-1",
+      "op": "canonicalize",
+      "input": "negative/0007/input.json",
+      "expect_error": "CANON_INTEGER_OUT_OF_RANGE",
+      "expected_code": "negative/0007/expected_code.txt"
+    },
+    {
+      "id": "negative/0008",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "negative/0008/input.json",
+      "expect_error": "MERKLE_PROOF_INVALID",
+      "expected_code": "negative/0008/expected_code.txt"
+    },
+    {
+      "id": "negative/0009",
+      "spec_req": "LOG-2",
+      "op": "merkle_verify_inclusion",
+      "input": "negative/0009/input.json",
+      "expect_error": "MERKLE_PROOF_INVALID",
+      "expected_code": "negative/0009/expected_code.txt"
+    },
+    {
+      "id": "negative/0010",
+      "spec_req": "LOG-3",
+      "op": "merkle_verify_consistency",
+      "input": "negative/0010/input.json",
+      "expect_error": "CONSISTENCY_PROOF_INVALID",
+      "expected_code": "negative/0010/expected_code.txt"
+    },
+    {
+      "id": "negative/0011",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0011/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0011/expected_code.txt"
+    },
+    {
+      "id": "negative/0012",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0012/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0012/expected_code.txt"
+    },
+    {
+      "id": "negative/0013",
+      "spec_req": "SIG-4",
+      "op": "ed25519_verify",
+      "input": "negative/0013/input.json",
+      "expect_error": "SIG_MALFORMED_KEY",
+      "expected_code": "negative/0013/expected_code.txt"
+    },
+    {
+      "id": "negative/0014",
+      "spec_req": "LOG-4",
+      "op": "checkpoint_verify",
+      "input": "negative/0014/input.json",
+      "expect_error": "CHECKPOINT_SIGNATURE_INVALID",
+      "expected_code": "negative/0014/expected_code.txt"
+    },
+    {
+      "id": "negative/0015",
+      "spec_req": "LOG-4",
+      "op": "checkpoint_verify",
+      "input": "negative/0015/input.json",
+      "expect_error": "CHECKPOINT_SIGNATURE_INVALID",
+      "expected_code": "negative/0015/expected_code.txt"
+    },
+    {
+      "id": "negative/0016",
+      "spec_req": "BUNDLE-1",
+      "op": "bundle_check",
+      "input": "negative/0016/input.json",
+      "expect_error": "BUNDLE_SCHEMA_INVALID",
+      "expected_code": "negative/0016/expected_code.txt"
+    },
+    {
+      "id": "negative/0017",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0017/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0017/expected_code.txt"
+    },
+    {
+      "id": "negative/0018",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0018/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0018/expected_code.txt"
+    },
+    {
+      "id": "negative/0019",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0019/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0019/expected_code.txt"
+    },
+    {
+      "id": "negative/0020",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0020/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0020/expected_code.txt"
+    },
+    {
+      "id": "negative/0021",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0021/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0021/expected_code.txt"
+    },
+    {
+      "id": "negative/0022",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0022/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0022/expected_code.txt"
+    },
+    {
+      "id": "negative/0023",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0023/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0023/expected_code.txt"
+    },
+    {
+      "id": "negative/0024",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0024/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0024/expected_code.txt"
+    },
+    {
+      "id": "negative/0025",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0025/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0025/expected_code.txt"
+    },
+    {
+      "id": "negative/0026",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0026/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0026/expected_code.txt"
+    },
+    {
+      "id": "negative/0027",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0027/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0027/expected_code.txt"
+    },
+    {
+      "id": "negative/0028",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0028/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0028/expected_code.txt"
+    },
+    {
+      "id": "negative/0029",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0029/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0029/expected_code.txt"
+    },
+    {
+      "id": "negative/0030",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0030/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0030/expected_code.txt"
+    },
+    {
+      "id": "negative/0031",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0031/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0031/expected_code.txt"
+    },
+    {
+      "id": "negative/0032",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0032/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0032/expected_code.txt"
+    },
+    {
+      "id": "negative/0033",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0033/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0033/expected_code.txt"
+    },
+    {
+      "id": "negative/0034",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0034/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0034/expected_code.txt"
+    },
+    {
+      "id": "negative/0035",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0035/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0035/expected_code.txt"
+    },
+    {
+      "id": "negative/0036",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0036/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0036/expected_code.txt"
+    },
+    {
+      "id": "negative/0037",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0037/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0037/expected_code.txt"
+    },
+    {
+      "id": "negative/0038",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0038/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0038/expected_code.txt"
+    },
+    {
+      "id": "negative/0039",
+      "spec_req": "SIG-1",
+      "op": "ed25519_verify",
+      "input": "negative/0039/input.json",
+      "expect_error": "SIG_INVALID",
+      "expected_code": "negative/0039/expected_code.txt"
+    },
+    {
+      "id": "negative/0041",
+      "spec_req": "CANON-4",
+      "op": "canonicalize",
+      "input": "negative/0041/input.json",
+      "expect_error": "CANON_NON_DETERMINISTIC_FLOAT",
+      "expected_code": "negative/0041/expected_code.txt"
+    },
+    {
+      "id": "negative/0042",
+      "spec_req": "CANON-4",
+      "op": "canonicalize",
+      "input": "negative/0042/input.json",
+      "expect_error": "CANON_NON_DETERMINISTIC_FLOAT",
+      "expected_code": "negative/0042/expected_code.txt"
+    },
+    {
+      "id": "negative/0043",
+      "spec_req": "CANON-4",
+      "op": "canonicalize",
+      "input": "negative/0043/input.json",
+      "expect_error": "CANON_INTEGER_OUT_OF_RANGE",
+      "expected_code": "negative/0043/expected_code.txt"
     }
   ]
 }

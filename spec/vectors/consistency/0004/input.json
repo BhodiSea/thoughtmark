@@ -1,0 +1,19 @@
+{
+  "new_root": "PXwHcdSDS8I4CWV7eSoCaLoj08ias+7hJg5uUTk0wOY=",
+  "old_root": "aRgwhlRNdXa7TLgrpGLLAC0mV4cFgEVZhLMagDDTP3M=",
+  "proof": {
+    "first": "700",
+    "path": [
+      "uiEijwmmNh/LKVE+IsVkT2nWi5zgXMyX4u5t0wAnTrw=",
+      "vgnvm8YFHHj7vVzGLWVQbvj8KzaXdxvsvE+5D1e/EWc=",
+      "76XQJbj+UFCzbPjXDZtj+ow221E+8/rveRxStzpeAmA=",
+      "MsdcE6b83HZDcDoHYjsJ6lJHb/wFIC7dA2d5SYG9eyE=",
+      "YM1/jfZ3V8b9sGoFyCksrULz+9cRTakKySC/O+l5BkQ=",
+      "rWxMfM57pj7c3a5D4WVbohk/AXjSFvfzwgeybQu69Po=",
+      "Y+y56KhQ27fdhcNXQNyfSls3WZfp3iKLqVnhc3EvZ38=",
+      "TZIB1raEoTUBQvu9/eZx8Mg2uZXKuQWF7j5m9pLo/Hs=",
+      "0Oi1qxmWgL6wy4ema2AX2LVDWucxDO6hu4T9VVAgWxM="
+    ],
+    "second": "1000"
+  }
+}

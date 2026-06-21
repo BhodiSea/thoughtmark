@@ -1,0 +1,28 @@
+[package]
+name = "thoughtmark-log"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Append-only transparency-log storage shell for thoughtmark (std). NEVER imported by core; all hashing delegates to thoughtmark-core::merkle."
+publish = false
+
+# std-only log shell. Depends INWARD on the audited core; all Merkle hashing delegates to `core::merkle`, so the
+# roots and proofs it serves are byte-identical to what the pure verifier recomputes. The Postgres/Tile drivers
+# (sqlx/object-store) are deferred to the reference app (Phase 5); only the trait + InMemoryStorage + the pure
+# gap-free sequencer land here.
+[dependencies]
+thoughtmark-core = { workspace = true, features = ["std"] }
+thiserror = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+proptest = "1"
+
+[lints]
+workspace = true

@@ -35,16 +35,35 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod anchor;
+mod base64;
+pub mod bundle;
 pub mod canon;
+pub mod checkpoint;
 pub mod determinism;
+pub mod did_key;
+pub mod dsse;
 pub mod envelope;
 pub mod error;
 mod hex;
+pub mod merkle;
 pub mod ops;
+pub mod sign;
+mod wire;
 
+pub use anchor::{AnchorKind, AnchorReceipt, AnchorVerdict, AnchorVerifier};
+pub use bundle::{BUNDLE_MEDIA_TYPE, BUNDLE_VERSION, ThoughtmarkBundle};
 pub use canon::{
     CANON_VERSION, CanonError, Digest, HashAlg, canonicalize, canonicalize_str, hash, hash_domain,
     hash_with,
 };
+pub use checkpoint::{Checkpoint, checkpoint_body, sign_checkpoint, verify_checkpoint};
 pub use determinism::{Clock, Csprng, Rng, UnixMillis};
+pub use did_key::{decode_did_key, encode_did_key};
+pub use dsse::{DSSE_PAYLOAD_TYPE, DsseEnvelope, EnvSig, pae};
 pub use error::{Error, ErrorCode, Result};
+pub use merkle::{
+    ConsistencyProof, InclusionProof, TreeHash, TreeState, merkle_tree_hash, verify_consistency,
+    verify_inclusion,
+};
+pub use sign::{Signature, Signer, TmSigner, VerifyingKey, verify, verify_envelope};
