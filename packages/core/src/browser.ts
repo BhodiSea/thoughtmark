@@ -2,6 +2,9 @@
 // Browser loader for the thoughtmark WASM core (the headless-browser conformance leg, run in CI).
 import init, { canon_version, run_op } from "../wasm/thoughtmark_wasm.js";
 
+// The runtime-agnostic typed verbs (§14.6) — re-exported so the browser entry carries the full surface.
+export * from "./api.js";
+
 let ready: Promise<void> | undefined;
 
 /** Instantiate the WASM module once via streaming fetch of the colocated `.wasm`. */

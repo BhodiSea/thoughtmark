@@ -35,51 +35,10 @@ impl SchemaVersion {
     };
 }
 
-/// The canonicalization format identifier, as a typed value.
-///
-/// Serializes as its [`CanonVersion::as_str`] (`"tm-jcs-1"`, identical to `thoughtmark_core::CANON_VERSION`).
-/// [`CanonVersion::parse`] is fail-closed: an unknown token deserializes to a serde error carrying the
-/// `UNKNOWN_CANON_VERSION` code (never best-effort recompute — arch §16). `#[non_exhaustive]` so a future
-/// `canon_v2` is a MINOR.
-#[non_exhaustive]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CanonVersion {
-    /// `"tm-jcs-1"` — the v1 RFC 8785 JCS canonicalization.
-    TmJcs1,
-}
-
-impl CanonVersion {
-    /// The stable wire token for this version.
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            CanonVersion::TmJcs1 => "tm-jcs-1",
-        }
-    }
-
-    /// Parse a wire token, fail-closed (`None` for an unknown version).
-    #[must_use]
-    pub fn parse(token: &str) -> Option<CanonVersion> {
-        match token {
-            "tm-jcs-1" => Some(CanonVersion::TmJcs1),
-            _ => None,
-        }
-    }
-}
-
-impl serde::Serialize for CanonVersion {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.as_str())
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for CanonVersion {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let token = <&str as serde::Deserialize>::deserialize(deserializer)?;
-        // Carry the stable ErrorCode token in the serde error so a malformed canon_version stays fail-closed.
-        CanonVersion::parse(token).ok_or_else(|| serde::de::Error::custom("UNKNOWN_CANON_VERSION"))
-    }
-}
+// `CanonVersion` (the typed `canon_version` with its fail-closed serde) is defined in `thoughtmark_core::scalar`
+// (the §14.3 core-types surface, reused by the §11 `verify` pipeline) and re-exported here so
+// `thoughtmark_schema::CanonVersion` keeps resolving.
+pub use thoughtmark_core::CanonVersion;
 
 /// A float-free JSON value for the `extensions` / `provider_params` escape hatches (arch §5.1).
 ///

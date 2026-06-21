@@ -48,16 +48,24 @@ pub mod error;
 mod hex;
 pub mod merkle;
 pub mod ops;
+pub mod scalar;
+pub mod seam;
 pub mod sign;
+pub mod verify;
 mod wire;
 
-pub use anchor::{AnchorKind, AnchorReceipt, AnchorVerdict, AnchorVerifier};
+pub use anchor::{
+    AnchorKind, AnchorReceipt, AnchorVerdict, AnchorVerifier, NoAnchorVerifier, VerifyParams,
+};
 pub use bundle::{BUNDLE_MEDIA_TYPE, BUNDLE_VERSION, ThoughtmarkBundle};
 pub use canon::{
     CANON_VERSION, CanonError, Digest, HashAlg, canonicalize, canonicalize_str, hash, hash_domain,
     hash_with,
 };
-pub use checkpoint::{Checkpoint, checkpoint_body, sign_checkpoint, verify_checkpoint};
+pub use checkpoint::{
+    Checkpoint, checkpoint_body, count_checkpoint_cosignatures, parse_checkpoint, sign_checkpoint,
+    verify_checkpoint,
+};
 pub use determinism::{Clock, Csprng, Rng, UnixMillis};
 pub use did_key::{decode_did_key, encode_did_key};
 pub use dsse::{DSSE_PAYLOAD_TYPE, DsseEnvelope, EnvSig, pae};
@@ -66,4 +74,15 @@ pub use merkle::{
     ConsistencyProof, InclusionProof, TreeHash, TreeState, merkle_tree_hash, verify_consistency,
     verify_inclusion,
 };
+pub use scalar::{
+    Action, ApprovalScope, CanonVersion, PREDICATE_TYPE, ParticipantKind, STATEMENT_TYPE,
+};
+pub use seam::{AttestationKind, Attestor, IdentityResolver};
 pub use sign::{Signature, Signer, TmSigner, VerifyingKey, verify, verify_envelope};
+pub use verify::{
+    CheckDetail, CheckKind, CheckOutcome, CheckStatus, Established, LineageStep, NotEstablished,
+    Policy, PolicyWire, VerificationResult,
+};
+// The §11 orchestrator is re-exported as `verify_bundle` because the crate root already binds `verify` to the
+// raw Ed25519 `sign::verify` primitive; the frozen §14.1 `verify` verb is `thoughtmark_core::verify::verify`.
+pub use verify::verify as verify_bundle;

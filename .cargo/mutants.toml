@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# cargo-mutants config (qf Domain 4, activated in Phase 3 as the verify logic lands). Scoped to the §11 verify
+# pipeline: a flipped comparison or a skipped check must turn at least one `verify/*` conformance vector (or a
+# `tests/verify.rs` assertion) red. Run with `just mutants` (kept out of the default `just ci` — it is slow).
+examine_globs = ["crates/thoughtmark-core/src/verify/**/*.rs"]
+exclude_re = ["impl Debug", "impl .*Serialize", "impl .*Deserialize"]
+timeout_multiplier = 3.0
+minimum_test_timeout = 60

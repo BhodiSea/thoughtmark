@@ -11,14 +11,17 @@
 //! the RAW blob; `hash_domain_*` → 64 hex bytes of the domain-separated hash (binding `CANON_VERSION` into the
 //! preimage).
 
+use crate::anchor::NoAnchorVerifier;
 use crate::bundle::ThoughtmarkBundle;
 use crate::canon::{self, HashAlg};
 use crate::checkpoint::{self, Checkpoint};
+use crate::determinism::{Clock, UnixMillis};
 use crate::dsse::{self, DsseEnvelope};
 use crate::envelope::{error_envelope, success_envelope};
 use crate::error::{Error, ErrorCode};
 use crate::merkle::{self, ConsistencyProof, InclusionProof, TreeHash};
 use crate::sign::{self, Signature, TmSigner, VerifyingKey};
+use crate::verify::{self, PolicyWire};
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -45,6 +48,8 @@ fn dispatch(op: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
         "hash_domain_manifest" => hash_domain_json(canon::domain::MANIFEST, input),
         "trail_root" => trail_root_json(input),
         "merkle_root" => op_merkle_root(input),
+        "inclusion_proof" => op_inclusion_proof(input),
+        "consistency_proof" => op_consistency_proof(input),
         "merkle_verify_inclusion" => op_merkle_verify_inclusion(input),
         "merkle_verify_consistency" => op_merkle_verify_consistency(input),
         "dsse_pae" => op_dsse_pae(input),
@@ -55,6 +60,7 @@ fn dispatch(op: &str, input: &[u8]) -> Result<Vec<u8>, Error> {
         "checkpoint_body" => op_checkpoint_body(input),
         "checkpoint_verify" => op_checkpoint_verify(input),
         "bundle_check" => op_bundle_check(input),
+        "verify" => op_verify(input),
         _ => Err(Error::internal("ops.unknown_op")),
     }
 }
@@ -204,7 +210,7 @@ fn op_did_key_decode(input: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 /// Resolve a verification key from either a `did:key:z…` string or a 64-char hex public key.
-fn resolve_key(key: &str) -> Result<VerifyingKey, Error> {
+pub(crate) fn resolve_key(key: &str) -> Result<VerifyingKey, Error> {
     if key.starts_with("did:key:") {
         crate::did_key::decode_did_key(key)
     } else {
@@ -278,12 +284,94 @@ fn op_checkpoint_verify(input: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 /// A `ThoughtmarkBundle` JSON → success envelope if its shape is valid (media type / version / canon version), else
-/// the appropriate error. This is the STRUCTURAL gate; the cryptographic `verify()` is a later phase.
+/// the appropriate error. This is the STRUCTURAL gate; the cryptographic `verify()` runs via the `verify` op.
 fn op_bundle_check(input: &[u8]) -> Result<Vec<u8>, Error> {
     let bundle: ThoughtmarkBundle =
         serde_json::from_slice(input).map_err(|_| Error::Bundle(ErrorCode::BundleSchemaInvalid))?;
     bundle.validate_shape()?;
     Ok(success_envelope())
+}
+
+/// `{"leaves":["<base64 record>", ...],"leaf_index":"<u64>"}` → the JCS-canonical RFC 9162 `InclusionProof`. Each
+/// record is leaf-hashed before the proof is built (mirroring `merkle_root`).
+fn op_inclusion_proof(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        leaves: Vec<String>,
+        #[serde(with = "crate::wire::dec_u64")]
+        leaf_index: u64,
+    }
+    let req: Req = serde_json::from_slice(input)
+        .map_err(|_| Error::Inclusion(ErrorCode::MerkleProofInvalid))?;
+    let hashes = leaf_hashes(&req.leaves)?;
+    let proof = merkle::inclusion_proof(&hashes, req.leaf_index)?;
+    Ok(canon::canonicalize(&proof)?)
+}
+
+/// `{"leaves":["<base64 record>", ...],"first":"<u64>"}` → the JCS-canonical RFC 9162 `ConsistencyProof` between
+/// the prefix of size `first` and the full leaf set.
+fn op_consistency_proof(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        leaves: Vec<String>,
+        #[serde(with = "crate::wire::dec_u64")]
+        first: u64,
+    }
+    let req: Req = serde_json::from_slice(input)
+        .map_err(|_| Error::Consistency(ErrorCode::ConsistencyProofInvalid))?;
+    let hashes = leaf_hashes(&req.leaves)?;
+    let proof = merkle::consistency_proof(&hashes, req.first)?;
+    Ok(canon::canonicalize(&proof)?)
+}
+
+/// Decode each base64 record and leaf-hash it (shared by `merkle_root`/`inclusion_proof`/`consistency_proof`).
+fn leaf_hashes(records: &[String]) -> Result<Vec<TreeHash>, Error> {
+    let mut hashes = Vec::with_capacity(records.len());
+    for record_b64 in records {
+        let record = crate::base64::decode_any(record_b64)
+            .ok_or(Error::Inclusion(ErrorCode::MerkleProofInvalid))?;
+        hashes.push(merkle::hash_leaf(&record));
+    }
+    Ok(hashes)
+}
+
+/// A fixed clock for the `verify` op: the injected `now` is a field of the case input (the op stays a pure
+/// `bytes -> bytes` function). Defined inline rather than reusing `determinism::fixtures::FixedClock` because that
+/// fixture is gated behind the `vectors` feature, which must never enter the default/wasm closure.
+struct OpsFixedClock(UnixMillis);
+
+impl Clock for OpsFixedClock {
+    fn now(&self) -> UnixMillis {
+        self.0
+    }
+}
+
+/// `{"bundle":<ThoughtmarkBundle>,"policy":<PolicyWire>,"env":{"now_unix_ms":"<i64>"}}` → the JCS-canonical
+/// `VerificationResult` bytes. A **tamper is NOT an error** — it is a successful run whose result carries
+/// `total:false`, so the proven/not-proven report survives. Only malformed INPUT (bad JSON / shape / key) returns
+/// the error envelope.
+fn op_verify(input: &[u8]) -> Result<Vec<u8>, Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Req {
+        bundle: ThoughtmarkBundle,
+        policy: PolicyWire,
+        env: Env,
+    }
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Env {
+        now_unix_ms: UnixMillis,
+    }
+    let req: Req =
+        serde_json::from_slice(input).map_err(|_| Error::Bundle(ErrorCode::BundleSchemaInvalid))?;
+    let policy = req.policy.into_policy()?;
+    let clock = OpsFixedClock(req.env.now_unix_ms);
+    let anchors = NoAnchorVerifier;
+    let result = verify::verify(&req.bundle, &policy, &clock, &anchors);
+    Ok(canon::canonicalize(&result)?)
 }
 
 #[cfg(test)]

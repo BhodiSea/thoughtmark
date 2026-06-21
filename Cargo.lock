@@ -927,6 +927,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "thoughtmark-vectors"
+version = "0.1.0"
+
+[[package]]
 name = "thoughtmark-wasm"
 version = "0.1.0"
 dependencies = [

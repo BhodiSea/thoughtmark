@@ -8,15 +8,9 @@
 use alloc::string::String;
 use thoughtmark_core::Digest;
 
-/// Whether a participant is a human or an AI.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ParticipantKind {
-    /// A human participant.
-    Human,
-    /// An AI participant.
-    Ai,
-}
+// `ParticipantKind` is defined in `thoughtmark_core::scalar` (the §14.3 core-types surface, reused by the §11
+// `verify` pipeline) and re-exported here so `thoughtmark_schema::ParticipantKind` keeps resolving.
+pub use thoughtmark_core::ParticipantKind;
 
 /// A participant in a reasoning trail, identified by a DID.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

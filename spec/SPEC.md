@@ -106,7 +106,42 @@ Output byte-identity is the master requirement:
 
 - **BUNDLE-1** — A `ThoughtmarkBundle` **MUST** carry `media_type = "application/vnd.thoughtmark.bundle.v1+json"`
   and a `u16` `bundle_version`; an unsupported version **MUST** fail closed (`BUNDLE_VERSION_UNSUPPORTED`) and a
-  malformed shape **MUST** fail closed (`BUNDLE_SCHEMA_INVALID`).
+  malformed shape **MUST** fail closed (`BUNDLE_SCHEMA_INVALID`). A bundle **MAY** staple the canonical bytes of the
+  `Turn`/`RunManifest` bodies its predicate `Trail` references (`turn_bodies`/`run_manifests`), so `verify()` can
+  replay the contribution-lineage DAG offline; an absent list canonicalizes identically to its omission.
+
+### 3.8 Offline verification (VERIFY, POLICY) — *Phase 3*
+
+- **VERIFY-1** — `verify(bundle, policy, clock, anchors)` **MUST** read the clock **exactly once** and run the nine
+  checks in the fixed order `BundleSchema → CanonVersion → DsseSignature → StatementBinding → MerkleInclusion →
+  Checkpoint → Consistency → AnchorReceipt → ContributionLineage`. For a well-formed run it **MUST** return a
+  `VerificationResult` **value, never an error** (a tamper is a successful run with `total = false`); `total` is the
+  AND of all non-`Skipped` checks. The result **MUST** always carry the constant `NotEstablished` honesty frame
+  (I7). Malformed INPUT (bad JSON, bundle shape, or key) **MUST** instead return the error envelope
+  (`BUNDLE_SCHEMA_INVALID` / `SIG_MALFORMED_KEY`). The JCS-canonical `VerificationResult` bytes **MUST** be
+  byte-identical across Rust/WASM/TS.
+- **VERIFY-2** — Each check **MUST** be independent: a single failure **MUST NOT** mask another. A tampered
+  signature therefore yields `total = false` with `DsseSignature` failed yet `StatementBinding` / `MerkleInclusion`
+  / `Checkpoint` / `ContributionLineage` still evaluated on the intact record; `unaltered_since_capture` **MUST**
+  equal the AND of those four checks.
+- **POLICY-1** — The `Policy` assertions **MUST** be enforced fail-closed: `require_anchor` requires ≥1 valid
+  anchor (so it fails when none is present — no `AnchorVerifier` ships before Phase 4, hence `existed_at_or_before`
+  stays absent); every `required_actions` entry **MUST** appear in the contribution ledger (else
+  `POLICY_UNSATISFIED`); `accepted_canon_versions` rejects an unaccepted version (`UNKNOWN_CANON_VERSION`); and the
+  checkpoint **MUST** carry ≥ `max(1, required_witnesses)` valid trusted-log-key cosignatures (counted over
+  **distinct** keys).
+- **VERIFY-3** — Each check **MUST** fail with its specific stable code when its precondition is violated:
+  `BundleSchema` → `BUNDLE_SCHEMA_INVALID` / `BUNDLE_VERSION_UNSUPPORTED`; `CanonVersion` → `UNKNOWN_CANON_VERSION`;
+  `StatementBinding` → `STATEMENT_SUBJECT_MISMATCH` when the recomputed dual `trail_root` ≠ `subject.digest`, the
+  bound `tree_size` ≠ the inclusion proof's, the `subject` set is not a singleton, or a policy
+  `expected_subject_digest` does not match; `MerkleInclusion` → `MERKLE_PROOF_INVALID` when the statement leaf is
+  not under the checkpoint root **or** the signed checkpoint `size` ≠ the proof `tree_size`; `Checkpoint` →
+  `CHECKPOINT_SIGNATURE_INVALID` for an untrusted/insufficient cosignature set or a `log_origin` mismatch. The
+  `ContributionLineage` DAG **MUST** be well-formed — every stapled turn body recomputes to a declared `turn_id`,
+  every declared turn is stapled (a body-less declared turn fails; lineage is mandatory), no duplicate turn id,
+  every `parents`/`supersedes` target resolves, the parent graph is acyclic, each ledger `attested_at` is
+  non-decreasing along every parent edge, and every `run_manifest_ref` is matched by a stapled manifest — any
+  violation fails with `LEDGER_BROKEN_LINK` / `LEDGER_NON_MONOTONIC_TIME`.
 
 ## 4. The error envelope
 

@@ -1,7 +1,7 @@
 {
-  "vectors_version": "0.7.0",
+  "vectors_version": "0.9.0",
   "canon_version": "tm-jcs-1",
-  "vector_count": 106,
+  "vector_count": 126,
   "toolchain": {
     "rustc": "1.96.0",
     "wasm_bindgen": "0.2.125",
@@ -458,6 +458,139 @@
       "expected": "bundle/0001/ok.txt"
     },
     {
+      "id": "verify/0001",
+      "spec_req": "VERIFY-1",
+      "op": "verify",
+      "input": "verify/0001/input.json",
+      "expected": "verify/0001/result.json"
+    },
+    {
+      "id": "verify/0002",
+      "spec_req": "VERIFY-2",
+      "op": "verify",
+      "input": "verify/0002/input.json",
+      "expected": "verify/0002/result.json"
+    },
+    {
+      "id": "verify/0003",
+      "spec_req": "POLICY-1",
+      "op": "verify",
+      "input": "verify/0003/input.json",
+      "expected": "verify/0003/result.json"
+    },
+    {
+      "id": "verify/0004",
+      "spec_req": "POLICY-1",
+      "op": "verify",
+      "input": "verify/0004/input.json",
+      "expected": "verify/0004/result.json"
+    },
+    {
+      "id": "verify/0005",
+      "spec_req": "POLICY-1",
+      "op": "verify",
+      "input": "verify/0005/input.json",
+      "expected": "verify/0005/result.json"
+    },
+    {
+      "id": "verify/0006",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0006/input.json",
+      "expected": "verify/0006/result.json"
+    },
+    {
+      "id": "verify/0007",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0007/input.json",
+      "expected": "verify/0007/result.json"
+    },
+    {
+      "id": "verify/0008",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0008/input.json",
+      "expected": "verify/0008/result.json"
+    },
+    {
+      "id": "verify/0009",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0009/input.json",
+      "expected": "verify/0009/result.json"
+    },
+    {
+      "id": "verify/0010",
+      "spec_req": "POLICY-1",
+      "op": "verify",
+      "input": "verify/0010/input.json",
+      "expected": "verify/0010/result.json"
+    },
+    {
+      "id": "verify/0011",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0011/input.json",
+      "expected": "verify/0011/result.json"
+    },
+    {
+      "id": "verify/0012",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0012/input.json",
+      "expected": "verify/0012/result.json"
+    },
+    {
+      "id": "verify/0013",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0013/input.json",
+      "expected": "verify/0013/result.json"
+    },
+    {
+      "id": "verify/0014",
+      "spec_req": "POLICY-1",
+      "op": "verify",
+      "input": "verify/0014/input.json",
+      "expected": "verify/0014/result.json"
+    },
+    {
+      "id": "verify/0015",
+      "spec_req": "POLICY-1",
+      "op": "verify",
+      "input": "verify/0015/input.json",
+      "expected": "verify/0015/result.json"
+    },
+    {
+      "id": "verify/0016",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0016/input.json",
+      "expected": "verify/0016/result.json"
+    },
+    {
+      "id": "verify/0017",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0017/input.json",
+      "expected": "verify/0017/result.json"
+    },
+    {
+      "id": "verify/0018",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0018/input.json",
+      "expected": "verify/0018/result.json"
+    },
+    {
+      "id": "verify/0019",
+      "spec_req": "VERIFY-3",
+      "op": "verify",
+      "input": "verify/0019/input.json",
+      "expected": "verify/0019/result.json"
+    },
+    {
       "id": "negative/0001",
       "spec_req": "CANON-4",
       "op": "canonicalize",
@@ -584,6 +717,14 @@
       "input": "negative/0016/input.json",
       "expect_error": "BUNDLE_SCHEMA_INVALID",
       "expected_code": "negative/0016/expected_code.txt"
+    },
+    {
+      "id": "negative/0044",
+      "spec_req": "VERIFY-1",
+      "op": "verify",
+      "input": "negative/0044/input.json",
+      "expect_error": "BUNDLE_SCHEMA_INVALID",
+      "expected_code": "negative/0044/expected_code.txt"
     },
     {
       "id": "negative/0017",

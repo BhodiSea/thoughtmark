@@ -11,10 +11,10 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 
-/// The in-toto Statement `_type` (frozen).
-pub const STATEMENT_TYPE: &str = "https://in-toto.io/Statement/v1";
-/// The thoughtmark provenance `predicateType` (frozen freeze-gate value).
-pub const PREDICATE_TYPE: &str = "https://thoughtmark.dev/Provenance/v1";
+// The two frozen format-identifier values are defined in `thoughtmark_core::scalar` (the §14.2 surface, reused by
+// the §11 `verify` pipeline) and re-exported here so `thoughtmark_schema::{STATEMENT_TYPE, PREDICATE_TYPE}` keep
+// resolving.
+pub use thoughtmark_core::{PREDICATE_TYPE, STATEMENT_TYPE};
 
 /// An in-toto v1 Statement whose predicate is a [`Trail`] prefix.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

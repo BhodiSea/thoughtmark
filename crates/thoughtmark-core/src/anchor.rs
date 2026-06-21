@@ -105,8 +105,8 @@ pub struct VerifyParams<'a> {
     pub trusted_keys: &'a [VerifyingKey],
 }
 
-/// The verifier seam. The concrete (pure) impl ships in a later phase; [`verify()`](crate) injects a `&dyn
-/// AnchorVerifier`.
+/// The verifier seam. The concrete (pure) impl ships in a later phase; [`verify()`](crate::verify) injects a
+/// `&dyn AnchorVerifier`.
 pub trait AnchorVerifier {
     /// Verify a receipt against the checkpoint it anchors.
     fn verify_anchor(
@@ -115,4 +115,23 @@ pub trait AnchorVerifier {
         receipt: &AnchorReceipt,
         params: &VerifyParams<'_>,
     ) -> AnchorVerdict;
+}
+
+/// The Phase-3 default [`AnchorVerifier`]: core ships NO anchor parsers (the DER/CMS/OTS/Bitcoin-header backends
+/// live in `thoughtmark-anchor`, delivered in Phase 4, ADR-0008). Every receipt is therefore rejected with
+/// [`ErrorCode::AnchorUnsupportedKind`], so a `Policy::require_anchor = true` run fails the `AnchorReceipt` check
+/// honestly and `Established::existed_at_or_before` stays `None` — the `time_upper_bound_only` honesty note holds
+/// until a real verifier is injected.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NoAnchorVerifier;
+
+impl AnchorVerifier for NoAnchorVerifier {
+    fn verify_anchor(
+        &self,
+        _checkpoint_bytes: &[u8],
+        _receipt: &AnchorReceipt,
+        _params: &VerifyParams<'_>,
+    ) -> AnchorVerdict {
+        AnchorVerdict::Invalid(ErrorCode::AnchorUnsupportedKind)
+    }
 }

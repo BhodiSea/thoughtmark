@@ -4,6 +4,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import init, { canon_version, run_op } from "../wasm/thoughtmark_wasm.js";
 
+// The runtime-agnostic typed verbs (§14.6) — re-exported so the Node entry carries the full surface.
+export * from "./api.js";
+
 let ready: Promise<void> | undefined;
 
 /**

@@ -10,7 +10,7 @@ use crate::anchor::AnchorReceipt;
 use crate::dsse::DsseEnvelope;
 use crate::error::{Error, ErrorCode};
 use crate::merkle::{ConsistencyProof, InclusionProof};
-use crate::wire::bytes_b64;
+use crate::wire::{bytes_b64, bytes_b64_vec};
 use alloc::string::String;
 use alloc::vec::Vec;
 
@@ -44,6 +44,20 @@ pub struct ThoughtmarkBundle {
     /// External anchor receipts (empty until a later phase populates them).
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub anchors: Vec<AnchorReceipt>,
+    /// The canonical JCS bytes of each `Turn` the predicate `Trail` references by id, stapled so `verify` (§11)
+    /// can replay the contribution-lineage DAG offline: it recomputes each `turn_id = hash_domain(BLAKE3, TURN,
+    /// body)` and walks `parents`/`supersedes`/the ledger. **Raw bytes, not the typed `Turn`** — the audited core
+    /// cannot depend on `thoughtmark-schema` (I8); `verify` parses each body as JSON. A legitimate `Trail` always
+    /// declares ≥1 turn, so every declared turn's body MUST be stapled here: the `ContributionLineage` check is
+    /// mandatory and fails `LEDGER_BROKEN_LINK` for any declared turn with no stapled body (a body-less bundle
+    /// cannot reach `total:true`). The `skip_serializing_if`/`default` is for wire-minimality of the empty case
+    /// only (a malformed body-less bundle), never a supported "head-only" shape.
+    #[serde(with = "bytes_b64_vec", skip_serializing_if = "Vec::is_empty", default)]
+    pub turn_bodies: Vec<Vec<u8>>,
+    /// The canonical JCS bytes of each `RunManifest` a stapled turn references via `run_manifest_ref`, so `verify`
+    /// can match `hash_domain(BLAKE3, MANIFEST, body)` against the ref. Raw bytes (see `turn_bodies`).
+    #[serde(with = "bytes_b64_vec", skip_serializing_if = "Vec::is_empty", default)]
+    pub run_manifests: Vec<Vec<u8>>,
 }
 
 /// Offline key-resolution material.

@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "thoughtmark-vectors"
+publish = true
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "The thoughtmark conformance corpus (spec/vectors) as a versioned crate — the Corpus-SemVer dev-dependency train (arch §16)."
+# The published .crate must vendor the corpus (a build.rs copy, or a pre-publish vendoring step), because the
+# embedded paths reach OUTSIDE the crate directory; in-workspace builds resolve them directly. See
+# docs/phase-3-release-checklist.md for the publish step.
+
+[lints]
+workspace = true

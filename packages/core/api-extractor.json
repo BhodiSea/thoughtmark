@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
+  "//": "Code-SemVer gate for @thoughtmark/core (arch §16; qf Domain 5). `api:check` (CI) diffs the rolled-up .d.ts against the committed etc/thoughtmark-core.api.md; `api:update` re-seeds the baseline. Wired by a human (devDep install + baseline) per docs/phase-3-release-checklist.md.",
+  "mainEntryPointFilePath": "<projectFolder>/dist/index.d.ts",
+  "apiReport": {
+    "enabled": true,
+    "reportFolder": "<projectFolder>/etc/",
+    "reportFileName": "thoughtmark-core.api.md"
+  },
+  "docModel": { "enabled": false },
+  "dtsRollup": { "enabled": false },
+  "tsdocMetadata": { "enabled": false },
+  "messages": {
+    "extractorMessageReporting": {
+      "ae-missing-release-tag": { "logLevel": "none" }
+    }
+  }
+}

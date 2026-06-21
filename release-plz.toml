@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+# Release automation for the Cargo workspace (qf Domain 5; arch §16). release-plz manages versions + changelogs
+# and runs cargo-semver-checks to block an accidental SemVer break, but it does NOT publish: the 1.0 trio ships
+# via OIDC Trusted Publishing in `.github/workflows/release.yml` (no long-lived token ever touches release-plz),
+# and the GitHub release/attestation flow is owned by that workflow. See docs/phase-3-release-checklist.md.
+[workspace]
+semver_check = true
+publish = false
+git_release_enable = false
+git_tag_enable = false
+dependencies_update = false
+
+# The audited core — the frozen §14 surface; a break here is a covenant break, so semver_check is mandatory.
+[[package]]
+name = "thoughtmark-core"
+semver_check = true
+
+# The schema wire types (re-export the relocated core scalars; still semver-gated).
+[[package]]
+name = "thoughtmark-schema"
+semver_check = true
+
+# The publishable corpus crate (the corpus is a dev-dependency, so a MAJOR forces a reviewed bump).
+[[package]]
+name = "thoughtmark-vectors"
+release = true
+
+# Dev/build-only crates are never published.
+[[package]]
+name = "thoughtmark-testkit"
+release = false
+[[package]]
+name = "thoughtmark-schemagen"
+release = false

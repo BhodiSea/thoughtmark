@@ -63,6 +63,20 @@ pub enum ErrorCode {
     BundleSchemaInvalid,
     /// A `ThoughtmarkBundle` declared a `bundle_version` this build does not support.
     BundleVersionUnsupported,
+    /// The in-toto subject did not bind the trail (digest / name / tree_size mismatch) — `verify` (§11).
+    StatementSubjectMismatch,
+    /// The signed predicate was not a well-formed `Provenance/v1` Trail — `verify` (§11).
+    PredicateSchemaInvalid,
+    /// The contribution lineage DAG was broken: a cycle, a dangling parent, a missing `supersedes` target, or a
+    /// `run_manifest_ref` with no matching manifest — `verify` (§11).
+    LedgerBrokenLink,
+    /// A ledger `attested_at` decreased along the lineage chain (non-monotonic time) — `verify` (§11).
+    LedgerNonMonotonicTime,
+    /// A redaction target was not found (reserved for Phase 5 `redact`; present so the frozen `ErrorCode` set
+    /// equals the SPEC §4 enumeration).
+    RedactTargetNotFound,
+    /// The caller's `Policy` was not satisfied (a required action / witness / anchor threshold) — `verify` (§11).
+    PolicyUnsatisfied,
     /// An internal invariant was violated (a static, content-free site tag, never runtime/secret data).
     Internal,
 }
@@ -93,6 +107,12 @@ impl ErrorCode {
             ErrorCode::AnchorUnsupportedKind => "ANCHOR_UNSUPPORTED_KIND",
             ErrorCode::BundleSchemaInvalid => "BUNDLE_SCHEMA_INVALID",
             ErrorCode::BundleVersionUnsupported => "BUNDLE_VERSION_UNSUPPORTED",
+            ErrorCode::StatementSubjectMismatch => "STATEMENT_SUBJECT_MISMATCH",
+            ErrorCode::PredicateSchemaInvalid => "PREDICATE_SCHEMA_INVALID",
+            ErrorCode::LedgerBrokenLink => "LEDGER_BROKEN_LINK",
+            ErrorCode::LedgerNonMonotonicTime => "LEDGER_NON_MONOTONIC_TIME",
+            ErrorCode::RedactTargetNotFound => "REDACT_TARGET_NOT_FOUND",
+            ErrorCode::PolicyUnsatisfied => "POLICY_UNSATISFIED",
             ErrorCode::Internal => "INTERNAL",
         }
     }
@@ -132,6 +152,12 @@ pub enum Error {
     /// A DSSE envelope was invalid.
     #[error("DSSE envelope invalid")]
     Dsse(ErrorCode),
+    /// A statement binding failed (subject mismatch or malformed predicate) — `verify` (§11).
+    #[error("statement binding invalid")]
+    Statement(ErrorCode),
+    /// A contribution-lineage check failed (broken link, non-monotonic time, or policy unsatisfied) — `verify`.
+    #[error("contribution lineage invalid")]
+    Lineage(ErrorCode),
     /// An anchor receipt was invalid.
     #[error("anchor receipt invalid")]
     Anchor(ErrorCode),
@@ -155,6 +181,8 @@ impl Error {
             | Error::Consistency(c)
             | Error::Signature(c)
             | Error::Dsse(c)
+            | Error::Statement(c)
+            | Error::Lineage(c)
             | Error::Anchor(c)
             | Error::Bundle(c) => *c,
             Error::Internal(_) => ErrorCode::Internal,
@@ -172,6 +200,8 @@ impl Error {
             Error::Consistency(_) => "merkle consistency proof invalid",
             Error::Signature(_) => "signature verification failed",
             Error::Dsse(_) => "DSSE envelope invalid",
+            Error::Statement(_) => "statement binding invalid",
+            Error::Lineage(_) => "contribution lineage invalid",
             Error::Anchor(_) => "anchor receipt invalid",
             Error::Bundle(_) => "bundle invalid",
             Error::Internal(tag) => tag,

@@ -2,7 +2,7 @@
 
 > The third planning pillar for **thoughtmark** — the tamper-evident provenance/notarization library for
 > multi-turn human–AI reasoning trails specified in [`roadmap.md`](./roadmap.md). Where the roadmap defines
-> *what* to build and [`quality-foundations.md`](./quality-foundations.md) defines the *quality contract* that
+> _what_ to build and [`quality-foundations.md`](./quality-foundations.md) defines the _quality contract_ that
 > holds a ~100%-AI-authored codebase at research tier, this document defines **how the code is shaped**: the
 > crate/package graph, module paths, the reasoning-trail schema, the internal design of every tier, the
 > byte-identical WASM binding, the offline verify pipeline, the frozen public API, and the reference app.
@@ -47,20 +47,20 @@ This is the **code architecture** for `thoughtmark`: the concrete crate/package 
 type/trait/function signatures, wire shapes, and data-flow an engineer with no prior context can build from. It
 sits underneath the two planning documents:
 
-| Document | Owns | Relationship to this doc |
-|---|---|---|
-| `roadmap.md` | *What* to build and *why* — product scope, the Tier 0–3 model, the standardization white-space, the integrity-of-record honesty frame, Phases 0–5. | This doc is the **structural realization** of the roadmap's "layered library, not a blockchain product" decision: it commits the tiers to specific crates, traits, and bytes. It does not restate the roadmap. Phase mapping is §17. |
-| `quality-foundations.md` | The *pre-implementation quality contract* — the deterministic, machine-checkable gates (CI-authoritative, hooks-advisory) that hold a ~100%-AI-authored codebase at research tier. | This doc **inherits** those gates as architectural constraints: `#![forbid(unsafe_code)]`, `clippy.toml` disallowed-methods, `cargo-deny`/`cargo-vet`, the `spec/vectors/` conformance corpus as the byte-identity oracle, the no-panic lint wall. Where a quality gate dictates a structural choice (the `vectors`-feature CSPRNG split, the wasm-opt pin, the per-crate `forbid-unsafe` override) the choice is made here. Quality Domain 4 (cross-language conformance) maps to §13. |
-| **this doc** | *How* the code is shaped: workspace, dependency directions, frozen API, verify pipeline, WASM boundary, schema. | Single source of truth for module layout and signatures. |
+| Document                 | Owns                                                                                                                                                                               | Relationship to this doc                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `roadmap.md`             | _What_ to build and _why_ — product scope, the Tier 0–3 model, the standardization white-space, the integrity-of-record honesty frame, Phases 0–5.                                 | This doc is the **structural realization** of the roadmap's "layered library, not a blockchain product" decision: it commits the tiers to specific crates, traits, and bytes. It does not restate the roadmap. Phase mapping is §17.                                                                                                                                                                                                                                                    |
+| `quality-foundations.md` | The _pre-implementation quality contract_ — the deterministic, machine-checkable gates (CI-authoritative, hooks-advisory) that hold a ~100%-AI-authored codebase at research tier. | This doc **inherits** those gates as architectural constraints: `#![forbid(unsafe_code)]`, `clippy.toml` disallowed-methods, `cargo-deny`/`cargo-vet`, the `spec/vectors/` conformance corpus as the byte-identity oracle, the no-panic lint wall. Where a quality gate dictates a structural choice (the `vectors`-feature CSPRNG split, the wasm-opt pin, the per-crate `forbid-unsafe` override) the choice is made here. Quality Domain 4 (cross-language conformance) maps to §13. |
+| **this doc**             | _How_ the code is shaped: workspace, dependency directions, frozen API, verify pipeline, WASM boundary, schema.                                                                    | Single source of truth for module layout and signatures.                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 > **The honesty frame is inherited verbatim and is load-bearing on the architecture, not just the prose.**
-> `thoughtmark` proves **integrity-of-record** — that a record *existed at time T, in a given lineage L,
-> unaltered since capture*. It does **not** prove **validity-of-record** (that the content is true/correct) or
+> `thoughtmark` proves **integrity-of-record** — that a record _existed at time T, in a given lineage L,
+> unaltered since capture_. It does **not** prove **validity-of-record** (that the content is true/correct) or
 > **faithfulness** (that a logged chain-of-thought reflects the model's actual internal computation). This is
 > encoded into the **type system**, not bolted on: the verifier returns a `VerificationResult` carrying a
 > permanent, machine-readable `NotEstablished { validity_of_record, faithfulness, authorship_truth,
-> completeness, time_upper_bound_only }` (§11); schema field names are `attested_at` / `attributed_to` /
-> `model_self_reported_version` (§5); per-turn endorsement carries an explicit `approval_scope` so the *limit*
+completeness, time_upper_bound_only }` (§11); schema field names are `attested_at` / `attributed_to` /
+> `model_self_reported_version` (§5); per-turn endorsement carries an explicit `approval_scope` so the _limit_
 > of an approval lives in the hashed bytes (§5). No public verb is named `verify_trail()` or `verify_correct()`;
 > the verbs are `verify_inclusion` / `verify_consistency` / `verify_envelope` / `verify_anchor` / `verify`
 > (§6, §7, §8, §11), each honest about the narrow fact it establishes.
@@ -83,7 +83,7 @@ sits underneath the two planning documents:
 
 **Out of scope (architecturally acknowledged, deliberately not solved in v1):**
 
-- **Capture-integrity / the oracle problem.** The architecture *moves* the trust boundary (Tier 3 TEE
+- **Capture-integrity / the oracle problem.** The architecture _moves_ the trust boundary (Tier 3 TEE
   attestation in §9 binds "model M produced output Y on input X") but never claims to eliminate it; the schema
   records `model_self_reported_*` fields honestly.
 - **Chain-of-thought faithfulness.** Structurally un-addressable; `NotEstablished.faithfulness` states this in
@@ -100,20 +100,20 @@ violates one of these, the design choice is wrong.
 
 ## 2.1 The invariant table
 
-| # | Invariant | Structural enforcement (mechanism, not promise) |
-|---|---|---|
-| **I1** | **Byte-identical output across Rust core, WASM, and TS.** Identical logical input ⇒ byte-identical canonical bytes / digests / proofs / signatures / PAE on every platform. | `spec/vectors/` is the oracle (§13). One required CI job runs native Rust **and** the WASM build (Node + 3 headless browser engines) over every vector and asserts byte equality against the committed expected files. The WASM module *is* the same compiled Rust (§12); the boundary carries only `Uint8Array`/`string`/`bigint`, never structured JS objects, so no JS-side re-encoding can occur. |
-| **I2** | **Always JCS-canonicalize before hashing.** No bare `H(json)`; every hash is over RFC 8785 bytes with a domain/version prefix (§4.5). | A single choke point `thoughtmark_core::canon::jcs` — an in-house RFC 8785 encoder (the `std`-only `serde_json_canonicalizer` cannot run in the `no_std` wasm core; it + a pure-TS oracle are differential checks only — **ADR-0001 as amended**; **`serde_jcs` still banned**). A clippy `disallowed-methods` lint bans `serde_json::to_vec`/`to_string` on hashed data. |
-| **I3** | **No ambient nondeterminism in core logic.** No `SystemTime::now`, `Instant::now`, `rand::thread_rng`, `rand::random`. Time and RNG are **injected** through explicit APIs. | `clippy.toml` `disallowed-methods` + `disallowed-types` ban these in `thoughtmark-core`/`-schema` (compile-gate, mirrored in CI). Time enters as `Clock::now() -> UnixMillis`; randomness as `Rng`/`Csprng` traits; signing keys via a `Signer` trait. `verify()` takes no RNG (verification is deterministic) and reads the clock **once** at entry (§10, §11). |
-| **I4** | **No floating point anywhere on the canonicalization / hashing / CID / Merkle path.** (WASM has NaN-bit and signed-zero nondeterminism.) | `f32`/`f64` are in `disallowed-types` for `canon`/`hash`/`cid`/`merkle`. A `validate_no_float(&Value)` walker rejects any JSON `f64` or integer outside the I-JSON safe range **before** canonicalization (§4.3). Decoding params are fixed-point `*_milli: u32`; oversized integers (`UnixMillis`, RNG seeds) are carried as decimal **strings** (§4.3, §5). The TS mirror types `u64` as `bigint`, never `number` (§12, §14). |
-| **I5** | **Store only salted hashes; never store sensitive content; never put content on any chain.** | Content is modeled as `ContentDigest::Hashed { alg, digest_hex }` (a salted commitment, salt held **off-ledger**, §4.7/§9) or `ContentDigest::Cid(Cid)` — the on-ledger types **cannot carry a plaintext body** (§5). `AnchorRequest` carries only a 32-byte root digest — structurally incapable of carrying an artifact body (§8). Raw turn bodies live in Supabase Storage under RLS, crypto-shreddable (§9, §15). |
-| **I6** | **Audited crypto crates only; never hand-roll.** Ed25519 via `ed25519-dalek` 2.x with **`verify_strict` always**; hashing via `blake3` + `sha2`. | The dependency budget is fixed and enforced by `cargo-deny`. The *only* sanctioned Ed25519 verification path is `verify_strict` (rejects small-order `A`/`R`, enforces canonical `S`); a clippy lint bans bare `verify`. RFC 6962 proof math is reimplemented in core (it *is* the spec, must be byte-identical, ~300 LOC) but checked against `transparency-dev/merkle` + `tlog_tiles` as differential oracles (§6, §18). |
-| **I7** | **Integrity-of-record, NOT validity-of-record, NOT faithfulness.** | Encoded in types (`NotEstablished`, `ApprovalScope`), field names (`attested_at`, `attributed_to`, `model_self_reported_version`), and verb naming. See §1.1, §5, §11. |
-| **I8** | **Pure, layered, dependency-light, audited core.** `thoughtmark-core` is `#![no_std]`+`alloc`, `#![forbid(unsafe_code)]`, no network, no DB, no clock, no chain, no RNG-source. | `[workspace.lints.rust] unsafe_code = "forbid"`; only `thoughtmark-wasm` overrides it. A CI script over `cargo metadata` fails the build if core's dependents include any networking/plugin crate, or if core's own deps include a networking crate, `getrandom`, `wasm-bindgen`, `tokio`, or `reqwest` (§3.3). |
+| #      | Invariant                                                                                                                                                                       | Structural enforcement (mechanism, not promise)                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **I1** | **Byte-identical output across Rust core, WASM, and TS.** Identical logical input ⇒ byte-identical canonical bytes / digests / proofs / signatures / PAE on every platform.     | `spec/vectors/` is the oracle (§13). One required CI job runs native Rust **and** the WASM build (Node + 3 headless browser engines) over every vector and asserts byte equality against the committed expected files. The WASM module _is_ the same compiled Rust (§12); the boundary carries only `Uint8Array`/`string`/`bigint`, never structured JS objects, so no JS-side re-encoding can occur.                           |
+| **I2** | **Always JCS-canonicalize before hashing.** No bare `H(json)`; every hash is over RFC 8785 bytes with a domain/version prefix (§4.5).                                           | A single choke point `thoughtmark_core::canon::jcs` — an in-house RFC 8785 encoder (the `std`-only `serde_json_canonicalizer` cannot run in the `no_std` wasm core; it + a pure-TS oracle are differential checks only — **ADR-0001 as amended**; **`serde_jcs` still banned**). A clippy `disallowed-methods` lint bans `serde_json::to_vec`/`to_string` on hashed data.                                                       |
+| **I3** | **No ambient nondeterminism in core logic.** No `SystemTime::now`, `Instant::now`, `rand::thread_rng`, `rand::random`. Time and RNG are **injected** through explicit APIs.     | `clippy.toml` `disallowed-methods` + `disallowed-types` ban these in `thoughtmark-core`/`-schema` (compile-gate, mirrored in CI). Time enters as `Clock::now() -> UnixMillis`; randomness as `Rng`/`Csprng` traits; signing keys via a `Signer` trait. `verify()` takes no RNG (verification is deterministic) and reads the clock **once** at entry (§10, §11).                                                                |
+| **I4** | **No floating point anywhere on the canonicalization / hashing / CID / Merkle path.** (WASM has NaN-bit and signed-zero nondeterminism.)                                        | `f32`/`f64` are in `disallowed-types` for `canon`/`hash`/`cid`/`merkle`. A `validate_no_float(&Value)` walker rejects any JSON `f64` or integer outside the I-JSON safe range **before** canonicalization (§4.3). Decoding params are fixed-point `*_milli: u32`; oversized integers (`UnixMillis`, RNG seeds) are carried as decimal **strings** (§4.3, §5). The TS mirror types `u64` as `bigint`, never `number` (§12, §14). |
+| **I5** | **Store only salted hashes; never store sensitive content; never put content on any chain.**                                                                                    | Content is modeled as `ContentDigest::Hashed { alg, digest_hex }` (a salted commitment, salt held **off-ledger**, §4.7/§9) or `ContentDigest::Cid(Cid)` — the on-ledger types **cannot carry a plaintext body** (§5). `AnchorRequest` carries only a 32-byte root digest — structurally incapable of carrying an artifact body (§8). Raw turn bodies live in Supabase Storage under RLS, crypto-shreddable (§9, §15).           |
+| **I6** | **Audited crypto crates only; never hand-roll.** Ed25519 via `ed25519-dalek` 2.x with **`verify_strict` always**; hashing via `blake3` + `sha2`.                                | The dependency budget is fixed and enforced by `cargo-deny`. The _only_ sanctioned Ed25519 verification path is `verify_strict` (rejects small-order `A`/`R`, enforces canonical `S`); a clippy lint bans bare `verify`. RFC 6962 proof math is reimplemented in core (it _is_ the spec, must be byte-identical, ~300 LOC) but checked against `transparency-dev/merkle` + `tlog_tiles` as differential oracles (§6, §18).      |
+| **I7** | **Integrity-of-record, NOT validity-of-record, NOT faithfulness.**                                                                                                              | Encoded in types (`NotEstablished`, `ApprovalScope`), field names (`attested_at`, `attributed_to`, `model_self_reported_version`), and verb naming. See §1.1, §5, §11.                                                                                                                                                                                                                                                          |
+| **I8** | **Pure, layered, dependency-light, audited core.** `thoughtmark-core` is `#![no_std]`+`alloc`, `#![forbid(unsafe_code)]`, no network, no DB, no clock, no chain, no RNG-source. | `[workspace.lints.rust] unsafe_code = "forbid"`; only `thoughtmark-wasm` overrides it. A CI script over `cargo metadata` fails the build if core's dependents include any networking/plugin crate, or if core's own deps include a networking crate, `getrandom`, `wasm-bindgen`, `tokio`, or `reqwest` (§3.3).                                                                                                                 |
 
 ## 2.2 Principles that follow from the invariants
 
-**P1 — Determinism is a *compile-time and CI* property, not a runtime hope.** The bans in I3/I4 are clippy
+**P1 — Determinism is a _compile-time and CI_ property, not a runtime hope.** The bans in I3/I4 are clippy
 `disallowed-methods`/`disallowed-types` (advisory hook + authoritative CI, per `quality-foundations.md`). A
 `cargo build -p thoughtmark-core --target wasm32-unknown-unknown --no-default-features --features alloc` job
 asserts `getrandom` and `wasm-bindgen` are absent from `cargo tree` — feature-unification leakage of
@@ -121,8 +121,8 @@ asserts `getrandom` and `wasm-bindgen` are absent from `cargo tree` — feature-
 nondeterminism and is the single most insidious failure mode.
 
 **P2 — The pure/sync core ↔ effectful/async shell split is the spine.** Every prior-art system (Sigstore,
-Tessera, Atlas — §18) separates *small pure proof-math + canonical data model* from *large side-effecting
-operate-the-log / talk-to-anchors / verify-identity shells*. `thoughtmark` replicates this exactly. This single
+Tessera, Atlas — §18) separates _small pure proof-math + canonical data model_ from _large side-effecting
+operate-the-log / talk-to-anchors / verify-identity shells_. `thoughtmark` replicates this exactly. This single
 diagram is the canonical statement of the boundary; later sections refer back to it rather than redrawing it:
 
 ```
@@ -139,7 +139,7 @@ diagram is the canonical statement of the boundary; later sections refer back to
 ```
 
 Anchoring submission, key generation, salt generation, did:web resolution, log sequencing, and persistence are
-*all* in the shell. The core never reads a clock, opens a socket, or calls an RNG.
+_all_ in the shell. The core never reads a clock, opens a socket, or calls an RNG.
 
 **P3 — Extension seams are frozen as `#[non_exhaustive]` traits + opaque byte-blob proofs.** Tier 2/3 and
 multi-party attach through traits defined now (`Signer`, `MerkleReader`, `AnchorVerifier`, `Anchorer`,
@@ -150,8 +150,8 @@ crates **without touching core SemVer** (§8, §9, §16). Adding an `AnchorKind`
 
 **P4 — Three orthogonal version axes; never conflate them** (full policy §16). (a) **Code SemVer** of the
 crates/packages; (b) **corpus SemVer** of `spec/vectors/` (any expected-byte change is a MAJOR corpus release);
-(c) **format identifiers** baked *into hashed bytes* (`canon_version`, the `predicateType` URI, the DSSE
-`payloadType`). Changing a hashed byte is simultaneously a new format-identifier *value* + a MAJOR corpus
+(c) **format identifiers** baked _into hashed bytes_ (`canon_version`, the `predicateType` URI, the DSSE
+`payloadType`). Changing a hashed byte is simultaneously a new format-identifier _value_ + a MAJOR corpus
 release + usually only a MINOR code release (you add `canon_v2`, never mutate `canon_v1`).
 
 **P5 — `canon_version` is bound inside the preimage; verifiers fail closed on the unknown.** Old artifacts stay
@@ -160,7 +160,7 @@ verifiable under their original rules forever because the verifier dispatches on
 `ErrorCode::UnknownCanonVersion` (a permanent negative vector) — **never** a best-effort recompute, because
 wrong-rules canonicalization could forge a passing verification (§4, §11, §16).
 
-**P6 — Export is one-way and never re-hashed.** PROV-O and C2PA projections are lossy interop *views* derived
+**P6 — Export is one-way and never re-hashed.** PROV-O and C2PA projections are lossy interop _views_ derived
 from the native schema; they are explicitly **not** canonicalized and **must not** be fed back into `hash()`.
 This isolates C2PA/CAWG/PROV-O spec churn from the byte-format train and avoids RDF-dataset-canonicalization
 nondeterminism on the trusted path (§5.10, §9, §14).
@@ -170,7 +170,7 @@ canonical `Turn` is the **multi-part** one (`content: Vec<ContentPart>`, includi
 args/result); edits/regenerations are first-class via a typed `supersedes` edge + lifecycle action verbs kept
 distinct from endorsement verbs; ordering authority is the `parents` DAG + Merkle leaf position (with `sequence`
 demoted to a non-authoritative display hint); and `tree_size` is bound into the in-toto `subject.name` so a
-Statement attests a trail *prefix at size N*, not the evolving whole (§5).
+Statement attests a trail _prefix at size N_, not the evolving whole (§5).
 
 ## 2.3 What "audited core" means concretely
 
@@ -179,8 +179,8 @@ Everything that does I/O is plain `std`. The audited surface carries:
 
 - `#![forbid(unsafe_code)]` (workspace lint; only `thoughtmark-wasm` overrides).
 - `#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::indexing_slicing,
-  clippy::arithmetic_side_effects, clippy::unreachable, clippy::todo, clippy::float_arithmetic,
-  clippy::string_slice)]` — the no-panic wall (§10). Every "impossible" case returns
+clippy::arithmetic_side_effects, clippy::unreachable, clippy::todo, clippy::float_arithmetic,
+clippy::string_slice)]` — the no-panic wall (§10). Every "impossible" case returns
   `Error::Internal(&'static str)` (a static site label, never runtime data) instead of panicking, because a
   Rust panic crossing the WASM boundary becomes an uncatchable `RuntimeError`.
 - Zero networking, clock, or RNG-source crates in the dependency tree (CI-asserted via `cargo tree`).
@@ -332,9 +332,9 @@ Notes that make the graph correct:
   `-log`, `-anchor*`, `-identity`, `-attest*`, `-redaction`, `-monitor`, `-wasm`, or any networking crate.
 - The async `AnchorBackend` (submit/upgrade) and the **pure** `AnchorVerifier` impl both live in
   `thoughtmark-anchor` — so DER/CMS/OTS-parse deps stay out of the audited core. Core defines only the
-  `AnchorVerifier` *trait* + the opaque `AnchorReceipt`/`AnchorVerdict` types; `verify()` (§11) takes an injected
+  `AnchorVerifier` _trait_ + the opaque `AnchorReceipt`/`AnchorVerdict` types; `verify()` (§11) takes an injected
   `&dyn AnchorVerifier` (ADR-0008).
-- **Plugins pin a compatible *range* of core** (`thoughtmark-core = ">=1, <2"`), never `"=1.2.3"`, so a plugin
+- **Plugins pin a compatible _range_ of core** (`thoughtmark-core = ">=1, <2"`), never `"=1.2.3"`, so a plugin
   can ship a MAJOR without forcing a core MAJOR (§16).
 
 **The dependency-direction invariant is CI-enforced.** A script over `cargo metadata` fails the build if (a)
@@ -344,11 +344,11 @@ crate, `getrandom`, `wasm-bindgen`, `tokio`, or `reqwest`.
 
 ## 3.4 The `std` / `no_std`+`alloc` boundary
 
-| Crate | Build mode | Why |
-|---|---|---|
-| `thoughtmark-core`, `thoughtmark-schema` | `#![no_std]` + `extern crate alloc;` (`std` feature default-on for native, **off** for the wasm path) | Needs `Vec`/`String`/`BTreeMap` for canonical bytes and proofs, but must link cleanly into `wasm32-unknown-unknown` without OS facilities. `serde_json` pulls the `alloc` requirement — hence `no_std + alloc`, not bare `no_std`. |
-| `thoughtmark-wasm` | `cdylib` + `rlib`, target `wasm32-unknown-unknown` | The one quarantine for `unsafe` and JS-RNG. `rlib` so native differential tests (§13.4) can link it. |
-| everything else (`-cli`, `-log`, all `-anchor-*`, `-identity`, `-redaction`, `-attest-*`, `-monitor`, `-c2pa`, `-schemagen`, `-testkit`, app) | plain `std` | They do I/O. |
+| Crate                                                                                                                                         | Build mode                                                                                            | Why                                                                                                                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `thoughtmark-core`, `thoughtmark-schema`                                                                                                      | `#![no_std]` + `extern crate alloc;` (`std` feature default-on for native, **off** for the wasm path) | Needs `Vec`/`String`/`BTreeMap` for canonical bytes and proofs, but must link cleanly into `wasm32-unknown-unknown` without OS facilities. `serde_json` pulls the `alloc` requirement — hence `no_std + alloc`, not bare `no_std`. |
+| `thoughtmark-wasm`                                                                                                                            | `cdylib` + `rlib`, target `wasm32-unknown-unknown`                                                    | The one quarantine for `unsafe` and JS-RNG. `rlib` so native differential tests (§13.4) can link it.                                                                                                                               |
+| everything else (`-cli`, `-log`, all `-anchor-*`, `-identity`, `-redaction`, `-attest-*`, `-monitor`, `-c2pa`, `-schemagen`, `-testkit`, app) | plain `std`                                                                                           | They do I/O.                                                                                                                                                                                                                       |
 
 The `no_std` island is **exactly** `{ core, schema }` — precisely the audited, byte-identical surface.
 
@@ -357,10 +357,10 @@ The `no_std` island is **exactly** `{ core, schema }` — precisely the audited,
 The roadmap's "no feature soup" lesson is honored by making **tiers separate crates, not features of core**:
 
 - `thoughtmark-core` default features = `["std"]` only. The wasm path builds `--no-default-features --features
-  alloc`. There is no tier code in core, so there are no tier features to gate there — avoiding cross-workspace
+alloc`. There is no tier code in core, so there are no tier features to gate there — avoiding cross-workspace
   feature-unification surprises entirely.
 - **`keygen`** feature on core (off by default) gates the one RNG-injecting helper
-  (`generate_signer<R: CryptoRng>`), so the audited *verify* path never links a CSPRNG (§7, §10).
+  (`generate_signer<R: CryptoRng>`), so the audited _verify_ path never links a CSPRNG (§7, §10).
 - **`vectors`** feature on core (off by default) gates `FixedClock`, `SeededRng`, and the test-only
   `VectorCsprng` newtype that `impl Csprng` — so **production can never reproduce a real salt/key from a test
   seed** (§10, §13).
@@ -422,7 +422,7 @@ extern crate alloc;
 #[cfg(feature = "std")] extern crate std;
 ```
 
-**`thoughtmark-wasm/Cargo.toml` — the unsafe / JS-RNG quarantine (the *only* override):**
+**`thoughtmark-wasm/Cargo.toml` — the unsafe / JS-RNG quarantine (the _only_ override):**
 
 ```toml
 [lib]
@@ -449,15 +449,15 @@ build; no `--target nodejs`).
 
 ## 3.7 Topology decisions resolved (firm recommendations → ADRs in §18)
 
-| Decision | Recommendation | One-line rationale |
-|---|---|---|
-| One core crate vs `-canon`/`-crypto`/`-merkle` split | **One `thoughtmark-core` + separate `thoughtmark-schema`** | A single core is easier to audit as one trusted unit; modules separate cleanly so a later split is mechanical (ADR-0002). |
-| Tier-1 Merkle: depend on `rs-merkle`/`ct-merkle` vs reimplement | **Reimplement RFC 6962 inside core**; use `ct-merkle` + `transparency-dev/merkle` + `tlog_tiles` only as **differential oracles** | The algorithm *is* the spec, must be byte-identical in WASM, and an external dep risks domain-separation/leaf-encoding mismatch + breaches `forbid(unsafe)` / offline-determinism (ADR-0005). |
-| Stateful log location | **`thoughtmark-log` shell crate** holds storage/sequencing/checkpoint-signing; pure proof math + checkpoint body/verify stay in `core::merkle`/`core::checkpoint` | Keeps DB/clock/RNG out of the audited core while reusing one set of pure hash functions. |
-| Anchor receipt verification location | **`thoughtmark-anchor`** (pure `AnchorVerifier` impl), injected into `core::verify` | Keeps DER/CMS/OTS/Bitcoin parsers out of the audited core (ADR-0008) while keeping `verify()` offline. |
-| Polyglot build orchestration | **`just` + pnpm scripts only in v1** | `just ci` already orders Cargo→wasm→TS-conformance; Turborepo adds misconfigurable surface (ADR-0003). |
-| Umbrella meta-crate | **None in v1; explicit per-plugin deps** | Keeps the graph legible for `cargo-deny`/`cargo-vet`; prevents feature-unification leakage into `no_std` core (ADR-0004). |
-| `fuzz/` in the workspace | **Outside the workspace** | `cargo-fuzz` pins nightly; would drag the workspace off the 1.96.0 stable pin (ADR-0006). |
+| Decision                                                        | Recommendation                                                                                                                                                    | One-line rationale                                                                                                                                                                            |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One core crate vs `-canon`/`-crypto`/`-merkle` split            | **One `thoughtmark-core` + separate `thoughtmark-schema`**                                                                                                        | A single core is easier to audit as one trusted unit; modules separate cleanly so a later split is mechanical (ADR-0002).                                                                     |
+| Tier-1 Merkle: depend on `rs-merkle`/`ct-merkle` vs reimplement | **Reimplement RFC 6962 inside core**; use `ct-merkle` + `transparency-dev/merkle` + `tlog_tiles` only as **differential oracles**                                 | The algorithm _is_ the spec, must be byte-identical in WASM, and an external dep risks domain-separation/leaf-encoding mismatch + breaches `forbid(unsafe)` / offline-determinism (ADR-0005). |
+| Stateful log location                                           | **`thoughtmark-log` shell crate** holds storage/sequencing/checkpoint-signing; pure proof math + checkpoint body/verify stay in `core::merkle`/`core::checkpoint` | Keeps DB/clock/RNG out of the audited core while reusing one set of pure hash functions.                                                                                                      |
+| Anchor receipt verification location                            | **`thoughtmark-anchor`** (pure `AnchorVerifier` impl), injected into `core::verify`                                                                               | Keeps DER/CMS/OTS/Bitcoin parsers out of the audited core (ADR-0008) while keeping `verify()` offline.                                                                                        |
+| Polyglot build orchestration                                    | **`just` + pnpm scripts only in v1**                                                                                                                              | `just ci` already orders Cargo→wasm→TS-conformance; Turborepo adds misconfigurable surface (ADR-0003).                                                                                        |
+| Umbrella meta-crate                                             | **None in v1; explicit per-plugin deps**                                                                                                                          | Keeps the graph legible for `cargo-deny`/`cargo-vet`; prevents feature-unification leakage into `no_std` core (ADR-0004).                                                                     |
+| `fuzz/` in the workspace                                        | **Outside the workspace**                                                                                                                                         | `cargo-fuzz` pins nightly; would drag the workspace off the 1.96.0 stable pin (ADR-0006).                                                                                                     |
 
 ---
 
@@ -495,8 +495,8 @@ RFC 6962 (**ADR-0001, as amended**; the abandoned `serde_jcs` is still banned). 
 depend on and pin in vectors:
 
 - **Key sort** = UTF-16 code units compared as unsigned `u16` — **not** Rust `char`/UTF-8 byte order and **not**
-  Unicode code point. Astral-plane keys (U+10000+) diverge because a surrogate pair (0xD800..) sorts *before* a
-  BMP char like U+E000 under UTF-16 but *after* under code-point order. We sort keys ourselves by their UTF-16
+  Unicode code point. Astral-plane keys (U+10000+) diverge because a surrogate pair (0xD800..) sorts _before_ a
+  BMP char like U+E000 under UTF-16 but _after_ under code-point order. We sort keys ourselves by their UTF-16
   code units (`encode_utf16`), and pin a **discriminating** astral-plane vector (`canon/0004`: `U+FFFF` vs
   `U+1F600` — the only class where UTF-16 disagrees with code-point/UTF-8 order; a `😀`-vs-ASCII case does not
   discriminate), plus a differential check against an independent JCS oracle (§13.3) guarding specifically against
@@ -519,7 +519,7 @@ pub fn canonicalize_str(json: &str) -> Result<Vec<u8>, CanonError>;
 > Route 100% of hashed serialization through these and ban direct `serde_json::to_vec` on hashed data via clippy
 > `disallowed-methods`: `serde_json`'s default float/whitespace output does not match JCS, so a single stray
 > `to_vec` silently breaks byte-identity. The TS facade **must never** `JSON.stringify`/`Number.toString`/sort
-> keys itself; it passes raw UTF-8 bytes into the WASM `canonicalize_str`, so the *same Rust code path* produces
+> keys itself; it passes raw UTF-8 bytes into the WASM `canonicalize_str`, so the _same Rust code path_ produces
 > the bytes on both sides (§12). Re-canonicalizing in JS is the canonical way to break this tier.
 
 ## 4.3 The no-float rule (`canon/nofloat.rs`)
@@ -538,7 +538,7 @@ Consequences encoded into the schema (§5): decimals (probabilities, scores, sam
 **scaled integers** (per-mille `u32`, e.g. `temperature_milli`); values that may exceed 2⁵³ (epoch-millis, RNG
 seeds) are carried as **decimal strings** so JS `BigInt` round-trips them and JCS never emits a number JS cannot
 represent. `serde_json`'s `arbitrary_precision` is ON so a large integer from stored JSON is not silently coerced
-to `f64` *before* `validate_no_float` can reject it.
+to `f64` _before_ `validate_no_float` can reject it.
 
 ## 4.4 The `Digest` abstraction (`canon/digest.rs`)
 
@@ -577,9 +577,9 @@ pub fn hash(bytes: &[u8]) -> Digest;                        // = hash_with(HashA
 ```
 
 **BLAKE3 (0x1e) is the internal content-addressing default; SHA-256 (0x12) is offered for interop.** The alg is
-carried *in* the `Digest` **and** bound into the hash preimage (§4.5), so a BLAKE3 and a SHA-256 hash of the same
+carried _in_ the `Digest` **and** bound into the hash preimage (§4.5), so a BLAKE3 and a SHA-256 hash of the same
 content occupy disjoint domains and cannot be cross-replayed. `#[non_exhaustive]` keeps adding an alg a MINOR
-(§16). **Note the Tier-1 separation (§6):** the *transparency-log tree* is pinned to **SHA-256** (RFC 6962 /
+(§16). **Note the Tier-1 separation (§6):** the _transparency-log tree_ is pinned to **SHA-256** (RFC 6962 /
 C2SP tlog-tiles / witness interop) and uses a distinct `TreeHash([u8;32])` newtype with the RFC 6962 0x00/0x01
 prefixes — it does **not** use this `Digest`/`hash_domain` machinery. Content addressing (this section) and the
 log tree (§6) are two explicitly separated hash domains; both columns appear in every relevant vector.
@@ -611,12 +611,12 @@ pub fn hash_domain(alg: HashAlg, domain: &str, canonical_json: &[u8]) -> Digest;
 
 There are exactly **three** content-hash domains (`OBJECT`, `TURN`, `MANIFEST`) — the only three structured-JSON
 objects that get a self-identifying id. Everything else that is "a hash of some content" (turn content parts,
-tool args/results, a free-text note, a system-prompt) is a **salted content digest** of *raw bytes* (§4.7), not
+tool args/results, a free-text note, a system-prompt) is a **salted content digest** of _raw bytes_ (§4.7), not
 a domain-prefixed JCS hash; and the **log leaf/node** hashes are RFC 6962 (§6), not these domains. (The
 transparency tree's leaf/node domain separation is the RFC 6962 `0x00`/`0x01` byte prefix — see §6 — kept
 deliberately distinct from this ASCII-string scheme so the log stays wire-compatible with C2SP/CT tooling.)
 
-`CANON_VERSION` is bound *inside* the hashed bytes (the cryptographic truth) **and** redundantly carried as a
+`CANON_VERSION` is bound _inside_ the hashed bytes (the cryptographic truth) **and** redundantly carried as a
 typed `CanonVersion` field on `Trail`/`Turn`/`RunManifest` that is asserted-equal during validation (the
 self-describing convenience). An unknown `canon_version` **fails closed** (`ErrorCode::UnknownCanonVersion`,
 §10/§16); a verifier never best-effort canonicalizes under guessed rules.
@@ -624,7 +624,7 @@ self-describing convenience). An unknown `canon_version` **fails closed** (`Erro
 ## 4.6 CIDv1 for binary blobs (`canon/cid.rs`)
 
 Binary blobs (PDFs, images, audio, model-weight references) are **never inlined** into canonical JSON. They are
-hashed to a CIDv1 and the CID *string* appears in the JSON. This keeps canonical JSON small, off the
+hashed to a CIDv1 and the CID _string_ appears in the JSON. This keeps canonical JSON small, off the
 encoding-ambiguity path, dedup-able, and crypto-shreddable (§9).
 
 ```rust
@@ -662,8 +662,8 @@ pub fn salted_content_digest(alg: HashAlg, salt: &Salt, content: &[u8]) -> Diges
 ```
 
 > **The salt is external by construction.** The on-ledger commitment is the 32-byte `digest`; the `(salt,
-> content)` pair lives off-ledger (Supabase Storage / a deletable key store, §9, §15). To *prove* a disclosed
-> value matches, a holder presents `salt` + `content` and the verifier recomputes the digest. To *erase* it
+content)` pair lives off-ledger (Supabase Storage / a deletable key store, §9, §15). To _prove_ a disclosed
+> value matches, a holder presents `salt` + `content` and the verifier recomputes the digest. To _erase_ it
 > (GDPR Art. 17 / medical confidentiality), the shell deletes the salt (and/or the ciphertext) — the commitment,
 > and every Merkle/anchor proof built over the Statement that contains it, stay byte-for-byte valid. This is why
 > **`ContentDigest::Hashed` carries `digest_hex` only, never `salt_hex`** (§5.6): a salt committed inside the
@@ -692,14 +692,14 @@ WASM layer renders that to a structured `{code,message}` JS error (§12.6).
 
 This is the standardization white-space: a content-addressed, append-only **DAG of attributed reasoning turns**,
 with attribution carried in an OmniScientist-OSP-derived **ContributionLedger**, an AI **RunManifest** bound per
-turn, a lossy one-way **PROV-O** projection, and an honesty frame encoded *in the field names and the type
-system*. It wraps as the `predicate` of an in-toto Statement (§7) and its DSSE envelope is the Tier-1 log leaf
+turn, a lossy one-way **PROV-O** projection, and an honesty frame encoded _in the field names and the type
+system_. It wraps as the `predicate` of an in-toto Statement (§7) and its DSSE envelope is the Tier-1 log leaf
 (§6). All types live in `thoughtmark-schema` (`#![no_std]`+`alloc`).
 
 > **The adversarial schema verdict is honored verbatim (P7):** (1) a typed `supersedes` edge + lifecycle vs
 > endorsement action split; (2) multi-part content with a first-class `ToolCall` part; (3) `parents` +
 > Merkle-leaf position as the **sole** ordering authority with `sequence` demoted to a display hint;
-> (4) `tree_size` bound into the in-toto `subject.name`; (5) `approval_scope` placed *in the hashed bytes*.
+> (4) `tree_size` bound into the in-toto `subject.name`; (5) `approval_scope` placed _in the hashed bytes_.
 
 ## 5.1 Shared scalar types (the determinism-critical wire forms)
 
@@ -765,14 +765,14 @@ pub enum Action {
 the single most common real multi-turn pattern — first-class (paired with the typed `supersedes` edge, §5.8)
 while keeping endorsement honestly scoped. `Review`/`Reject` semantics are deliberately under-specified in v1.
 
-## 5.4 Approval scope — the honesty limit *in the bytes* (verdict resolution #5)
+## 5.4 Approval scope — the honesty limit _in the bytes_ (verdict resolution #5)
 
 ```rust
 #[derive(Serialize, Deserialize)] #[serde(rename_all = "snake_case")] #[non_exhaustive]
 pub enum ApprovalScope { Reviewed, Endorsed, Acknowledged, NoClaim }
 ```
 
-`Endorsed` reads strongly but is recorded in the hashed `LedgerEntry`, so the *limit* of an approval is
+`Endorsed` reads strongly but is recorded in the hashed `LedgerEntry`, so the _limit_ of an approval is
 cryptographically committed — a consumer can no longer infer "human verified correctness" from a bare
 `[ai create, human approve]` sequence. This mirrors the `NotEstablished` discipline of the verify pipeline (§11)
 and closes the integrity-vs-validity honesty hole at the schema layer.
@@ -792,7 +792,7 @@ pub struct LedgerEntry {
 ```
 
 A single `Turn` carries **≥1** entries; multiple entries give sub-turn multi-party attribution (human `create` →
-AI `refine` → human `approve`). The ledger is the heart of the predicate; PROV-O is *derived* from it (§5.10),
+AI `refine` → human `approve`). The ledger is the heart of the predicate; PROV-O is _derived_ from it (§5.10),
 never stored separately, so there is one source of truth that gets canonicalized and hashed.
 
 ## 5.6 Content parts (verdict resolution #2)
@@ -898,7 +898,7 @@ pub struct Trail {                                   // a.k.a. ScholarlyObject
 ```
 
 **Ordering authority is normative (SPEC.md `LOG-*`):** `parents` (the DAG) plus the Merkle-log leaf position are
-the *sole* ordering authority. `sequence` is a per-branch display hint a verifier never relies on — a true
+the _sole_ ordering authority. `sequence` is a per-branch display hint a verifier never relies on — a true
 branch can produce a `sequence` that contradicts the topology, so two implementations must not be allowed to
 derive different orders from it. Derivations (pure, in core/schema):
 
@@ -907,7 +907,7 @@ pub fn turn_id(t: &Turn)    -> Result<TurnId, SchemaError>;            // hash_d
 pub fn trail_root(t: &Trail) -> Result<BTreeMap<String, String>, SchemaError>;  // {"blake3":hex, "sha256":hex}
 ```
 
-A `TurnId` *is* its turn's content digest, so any mutation changes the id — tamper-evidence is intrinsic, and a
+A `TurnId` _is_ its turn's content digest, so any mutation changes the id — tamper-evidence is intrinsic, and a
 `TurnId` is never a field inside `Turn` (you cannot hash a struct containing its own hash).
 
 ## 5.9 in-toto Statement wrapping (detail in §7)
@@ -960,13 +960,26 @@ decimal string, `canon_version` is `"tm-jcs-1"`, and no `salt_hex` appears anywh
   "sequence": 0,
   "role": "human",
   "content": [
-    { "kind": "content", "media_type": "text/plain",
-      "body": { "kind": "hashed", "alg": "blake3", "digest_hex": "blake3-of-{salt||question}…" } }
+    {
+      "kind": "content",
+      "media_type": "text/plain",
+      "body": {
+        "kind": "hashed",
+        "alg": "blake3",
+        "digest_hex": "blake3-of-{salt||question}…"
+      }
+    }
   ],
   "parents": [],
-  "ledger": { "entries": [
-    { "action": "create", "attributed_to": { "id": "did:key:z6MkInvestigator…" }, "attested_at": "1750000000000" }
-  ] }
+  "ledger": {
+    "entries": [
+      {
+        "action": "create",
+        "attributed_to": { "id": "did:key:z6MkInvestigator…" },
+        "attested_at": "1750000000000"
+      }
+    ]
+  }
 }
 ```
 
@@ -975,11 +988,19 @@ decimal string, `canon_version` is `"tm-jcs-1"`, and no `salt_hex` appears anywh
 ```json
 {
   "canon_version": "tm-jcs-1",
-  "provider": "anthropic", "model_id": "claude-opus-4-8",
+  "provider": "anthropic",
+  "model_id": "claude-opus-4-8",
   "model_self_reported_version": "claude-opus-4-8-20260601",
-  "decoding": { "temperature_milli": 200, "top_p_milli": 950, "max_output_tokens": 1024 },
-  "system_prompt_digest": { "alg": "blake3", "bytes_hex": "blake3-of-{salt||sysprompt}…" },
-  "tools": [ { "name": "pubmed_search", "version": "2.1.0" } ],
+  "decoding": {
+    "temperature_milli": 200,
+    "top_p_milli": 950,
+    "max_output_tokens": 1024
+  },
+  "system_prompt_digest": {
+    "alg": "blake3",
+    "bytes_hex": "blake3-of-{salt||sysprompt}…"
+  },
+  "tools": [{ "name": "pubmed_search", "version": "2.1.0" }],
   "context_window": 200000,
   "seed": "184467440737095516"
 }
@@ -995,21 +1016,50 @@ decimal string, `canon_version` is `"tm-jcs-1"`, and no `salt_hex` appears anywh
   "sequence": 1,
   "role": "ai",
   "content": [
-    { "kind": "content", "media_type": "text/markdown",
-      "body": { "kind": "hashed", "alg": "blake3", "digest_hex": "blake3-of-{salt||explanation}…" } },
-    { "kind": "content", "media_type": "image/png",
-      "body": { "kind": "cid", "cid": "bafkreigh2akiscaildc…" } },
-    { "kind": "tool_call", "tool": { "name": "pubmed_search", "version": "2.1.0" },
-      "args_digest":   { "alg": "blake3", "bytes_hex": "blake3-of-{salt||args}…" },
-      "result_digest": { "alg": "blake3", "bytes_hex": "blake3-of-{salt||result}…" } }
+    {
+      "kind": "content",
+      "media_type": "text/markdown",
+      "body": {
+        "kind": "hashed",
+        "alg": "blake3",
+        "digest_hex": "blake3-of-{salt||explanation}…"
+      }
+    },
+    {
+      "kind": "content",
+      "media_type": "image/png",
+      "body": { "kind": "cid", "cid": "bafkreigh2akiscaildc…" }
+    },
+    {
+      "kind": "tool_call",
+      "tool": { "name": "pubmed_search", "version": "2.1.0" },
+      "args_digest": {
+        "alg": "blake3",
+        "bytes_hex": "blake3-of-{salt||args}…"
+      },
+      "result_digest": {
+        "alg": "blake3",
+        "bytes_hex": "blake3-of-{salt||result}…"
+      }
+    }
   ],
-  "parents": [ { "alg": "blake3", "bytes_hex": "blake3-of-turn-0…" } ],
+  "parents": [{ "alg": "blake3", "bytes_hex": "blake3-of-turn-0…" }],
   "run_manifest_ref": { "alg": "blake3", "bytes_hex": "blake3-of-rm…" },
-  "ledger": { "entries": [
-    { "action": "propose", "attributed_to": { "id": "did:web:models.example:agents:claude" }, "attested_at": "1750000005000" },
-    { "action": "approve", "attributed_to": { "id": "did:key:z6MkInvestigator…" },
-      "approval_scope": "endorsed", "attested_at": "1750000060000" }
-  ] }
+  "ledger": {
+    "entries": [
+      {
+        "action": "propose",
+        "attributed_to": { "id": "did:web:models.example:agents:claude" },
+        "attested_at": "1750000005000"
+      },
+      {
+        "action": "approve",
+        "attributed_to": { "id": "did:key:z6MkInvestigator…" },
+        "approval_scope": "endorsed",
+        "attested_at": "1750000060000"
+      }
+    ]
+  }
 }
 ```
 
@@ -1019,8 +1069,15 @@ digests:
 ```json
 {
   "_type": "https://in-toto.io/Statement/v1",
-  "subject": [ { "name": "trail:7f3c1e2a-session@2",
-                 "digest": { "blake3": "blake3-trail-root…", "sha256": "sha256-trail-root…" } } ],
+  "subject": [
+    {
+      "name": "trail:7f3c1e2a-session@2",
+      "digest": {
+        "blake3": "blake3-trail-root…",
+        "sha256": "sha256-trail-root…"
+      }
+    }
+  ],
   "predicateType": "https://thoughtmark.dev/Provenance/v1",
   "predicate": { "...": "the Trail object above" }
 }
@@ -1028,24 +1085,24 @@ digests:
 
 This Statement is JCS-canonicalized, DSSE-wrapped (PAE, §7), Ed25519-signed with the proposing agent's DID key
 (`keyid = did:web:models.example:agents:claude#key-1`), appended as a Tier-1 leaf (§6), and — periodically — its
-root anchored (§8). The verifier (§11) reports exactly: *existed at/before T, this human/AI lineage, unaltered
-since capture* — and explicitly **not** that the explanation is correct or the answer right.
+root anchored (§8). The verifier (§11) reports exactly: _existed at/before T, this human/AI lineage, unaltered
+since capture_ — and explicitly **not** that the explanation is correct or the answer right.
 
 ## 5.12 Determinism contract & invariants checklist
 
-| Rule | Mechanism |
-|---|---|
-| Byte-identical Rust/WASM/TS | all serialization through `canonicalize` (§4.2); WASM never re-canonicalizes (§12) |
-| No floats on the hashed path | `validate_no_float` + `*_milli` ints + decimal-string `UnixMillis`/seeds (§4.3, §5.1) |
-| Large ints survive parse | `serde_json` `arbitrary_precision`; >2⁵³ carried as strings (§4.3) |
-| Closed shape | `#[serde(deny_unknown_fields)]` on all wire types; absent ≠ `null` via `skip_serializing_if` |
-| Extensible without breakage | typed float-free `extensions: BTreeMap<String, CanonicalValue>` (§16) |
-| Deterministic maps | `BTreeMap` everywhere; JCS re-sorts keys (UTF-16) |
-| Self-identifying ids | `TurnId = hash_domain(TURN, ·)`; never stored inside `Turn` |
-| Single ordering authority | `parents` DAG + Merkle-leaf position; `sequence` is a display hint only |
-| Honesty in the bytes | `attested_at`/`attributed_to`/`model_self_reported_version`; `ApprovalScope`; lifecycle vs endorsement verbs |
-| No content, ever | salted `ContentDigest::Hashed`/CID only (salt off-ledger); enables crypto-shredding (§9) |
-| Prefix-bound canon_version | `hash_domain` prefix + redundant typed field, asserted-equal; unknown → fail closed |
+| Rule                         | Mechanism                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Byte-identical Rust/WASM/TS  | all serialization through `canonicalize` (§4.2); WASM never re-canonicalizes (§12)                           |
+| No floats on the hashed path | `validate_no_float` + `*_milli` ints + decimal-string `UnixMillis`/seeds (§4.3, §5.1)                        |
+| Large ints survive parse     | `serde_json` `arbitrary_precision`; >2⁵³ carried as strings (§4.3)                                           |
+| Closed shape                 | `#[serde(deny_unknown_fields)]` on all wire types; absent ≠ `null` via `skip_serializing_if`                 |
+| Extensible without breakage  | typed float-free `extensions: BTreeMap<String, CanonicalValue>` (§16)                                        |
+| Deterministic maps           | `BTreeMap` everywhere; JCS re-sorts keys (UTF-16)                                                            |
+| Self-identifying ids         | `TurnId = hash_domain(TURN, ·)`; never stored inside `Turn`                                                  |
+| Single ordering authority    | `parents` DAG + Merkle-leaf position; `sequence` is a display hint only                                      |
+| Honesty in the bytes         | `attested_at`/`attributed_to`/`model_self_reported_version`; `ApprovalScope`; lifecycle vs endorsement verbs |
+| No content, ever             | salted `ContentDigest::Hashed`/CID only (salt off-ledger); enables crypto-shredding (§9)                     |
+| Prefix-bound canon_version   | `hash_domain` prefix + redundant typed field, asserted-equal; unknown → fail closed                          |
 
 `proptest` invariants to ship (§13): `canonicalize` is idempotent; `turn_id` is stable under JCS key
 re-sorting; mutating any turn byte changes `trail_root`; `export_prov` is a pure function of `(trail, turns,
@@ -1082,7 +1139,7 @@ pub fn empty_root() -> TreeHash;                          // SHA-256("")
 
 The leaf bytes fed to `hash_leaf` are the JCS-canonical DSSE envelope (§7); since `canon_version` is bound inside
 those bytes, a canonicalization change forces a new leaf hash rather than a silent collision. The RFC 6962
-`0x00`/`0x01` byte prefixes are the *only* domain separation for the tree — the ASCII-string `hash_domain` scheme
+`0x00`/`0x01` byte prefixes are the _only_ domain separation for the tree — the ASCII-string `hash_domain` scheme
 of §4.5 is content-addressing and never touches the tree (this reconciles the two leaf/node domains the spec
 must never conflate).
 
@@ -1107,16 +1164,16 @@ pub fn verify_consistency(p: &ConsistencyProof, old: &TreeHash, new: &TreeHash) 
 
 Both verifiers take `&TreeHash`, never `&[u8]`, so "forgot to domain-hash" is a type error; they never panic and
 never allocate unboundedly (the no-panic wall, §10). Hash equality uses `subtle::ConstantTimeEq`. The RFC 9162
-*iterative* forms are used in preference to the recursive RFC 6962 forms specifically because recursion blows the
+_iterative_ forms are used in preference to the recursive RFC 6962 forms specifically because recursion blows the
 WASM stack on large trees.
 
-> **Pitfalls pinned by vectors (§13):** the largest-power-of-two split must be *strictly less than* `n` (a naive
+> **Pitfalls pinned by vectors (§13):** the largest-power-of-two split must be _strictly less than_ `n` (a naive
 > `n/2` is wrong and passes only on powers of two); the `0x00`/`0x01` prefixes must be applied identically in
 > Rust and WASM; the path-length check must reject both too-long and too-short proofs.
 
-## 6.3 Proof *construction* — pure math, injected node source
+## 6.3 Proof _construction_ — pure math, injected node source
 
-Construction needs the tree (or tiles), so the node *source* is injected via a `MerkleReader`/`HashReader`
+Construction needs the tree (or tiles), so the node _source_ is injected via a `MerkleReader`/`HashReader`
 trait, but the math is the same pure routine used for the in-memory driver and for generating vectors:
 
 ```rust
@@ -1181,7 +1238,7 @@ Three drivers, all delegating hashing to `thoughtmark-core` so roots/proofs are 
   writes with `pg_advisory_xact_lock(hashtext(log_id::text))` to guarantee **gap-free, monotonically increasing
   indices** (a hard requirement — a gap or duplicate silently corrupts every later root). **Do not** run
   Trillian/Tessera for a single tenant (Go microservices, MySQL/Spanner, gRPC — operationally unjustified);
-  embed the pure tree over Postgres and expose a tiles *export* for external monitors.
+  embed the pure tree over Postgres and expose a tiles _export_ for external monitors.
 - **`TileStorage`** — the public shared log: serve the exact C2SP `tlog-tiles` layout (tiles
   `<prefix>/tile/<L>/<N>[.p/<W>]`, height-8 / 256-hash / 8192-byte full tiles, entry bundles with big-endian
   `uint16` length-prefixed entries, `/checkpoint`) from object storage (Supabase Storage / S3 / CDN). The
@@ -1197,7 +1254,7 @@ identified by `subject.name`; periodic checkpoints anchor batches of turns (§8)
 
 - **Witness** (`thoughtmark-monitor` / a `thoughtmark-witness` reference): given a new checkpoint and a
   consistency proof from the last checkpoint it cosigned, verifies append-only-ness via `verify_consistency`
-  (pure core) and appends its own C2SP cosignature line. A verifier `Policy` (§11) can require *k-of-n* witness
+  (pure core) and appends its own C2SP cosignature line. A verifier `Policy` (§11) can require _k-of-n_ witness
   cosignatures before trusting integrated time — the practical defense against a log operator presenting a
   **split view** (inclusion proofs alone cannot detect a fork).
 - **Monitor**: fetches entry bundles / checkpoints, verifies a consistency proof old→new each interval (pure
@@ -1275,7 +1332,8 @@ means plain `verify()` admits small-order/torsion components in `A` and `R`, yie
 signatures — two valid signatures for one `(key, message)` — which corrupts Merkle-leaf stability and
 consistency proofs. `verify_strict` rejects small-order `A`/`R` and enforces canonical `S` via the cofactorless
 equation `[S]B = R + [k]A'`. The exact accept/reject boundary for edge cases is pinned by importing **Wycheproof**
-+ **ed25519-speccheck** vectors (and the `ed25519-dalek` version is pinned in `spec/vectors/manifest.json`).
+
+- **ed25519-speccheck** vectors (and the `ed25519-dalek` version is pinned in `spec/vectors/manifest.json`).
 
 ## 7.4 Key types & hygiene (`secrecy` 0.10 + `zeroize` + `subtle`)
 
@@ -1318,7 +1376,7 @@ The DSSE `keyid` is the full DID verificationMethod URL (`did:…#key-1`) so a v
   is the controller DID with the multibase string repeated as the fragment. `core::did_key` derives/validates
   this with **no network** (pure, byte-identical) and rejects any non-Ed25519 multicodec or off-curve key.
 - **did:web** (institutional, rotatable): resolution (HTTPS) lives in `thoughtmark-identity` (§9); core only
-  validates that a *supplied* DID document's verificationMethod bytes equal the `VerifyingKey`.
+  validates that a _supplied_ DID document's verificationMethod bytes equal the `VerifyingKey`.
 
 ## 7.6 The offline verification bundle — `ThoughtmarkBundle`
 
@@ -1349,12 +1407,12 @@ pub struct VerificationMaterial { pub verification_methods: Vec<VerificationMeth
 
 # 8. Tier 2 — anchoring plugin architecture
 
-Anchoring pins the *periodic Merkle root* (not every artifact) to an external timebase. It is a thin **async**
+Anchoring pins the _periodic Merkle root_ (not every artifact) to an external timebase. It is a thin **async**
 layer entirely outside the pure core. The split (ADR-0008):
 
 - **Core defines only** the `AnchorVerifier` trait + the opaque `AnchorReceipt`/`AnchorKind`/`AnchorVerdict`
   types (`core::anchor`). The proof bytes are opaque to core.
-- **`thoughtmark-anchor` defines** the async `AnchorBackend` (submit/upgrade — network) **and** the *pure*
+- **`thoughtmark-anchor` defines** the async `AnchorBackend` (submit/upgrade — network) **and** the _pure_
   `AnchorVerifier` impl (the DER/CMS/OTS/Bitcoin-header parsers live here, **not** in the audited core). The
   core `verify()` pipeline (§11) receives an injected `&dyn AnchorVerifier`, so end-to-end verification stays
   offline while the audited core stays free of parsing deps.
@@ -1420,26 +1478,26 @@ the block via the injected `BlockHeaderOracle`, `time_lower_bound = header.times
 remaining ⇒ `Pending`); **RFC 3161:** verify the CMS `SignedData` chain to `trusted_tsa_roots`, confirm
 `TSTInfo.messageImprint` hashes to the root, read `genTime`; **Fabric:** validate the block's endorsement set
 against supplied MSP roots and the write-set value at key `root`. It re-derives every advisory field from the
-opaque bytes and never trusts a cached field. No socket, no clock-of-now — time is read *from* the proof.
+opaque bytes and never trusts a cached field. No socket, no clock-of-now — time is read _from_ the proof.
 
 ## 8.4 The plugins
 
 - **OpenTimestamps (`thoughtmark-anchor-ots`)** — `rust-opentimestamps`/`opentimestamps` 0.7.x only
   parses/serializes `.ots` and replays ops; it **cannot stamp/upgrade**. So the plugin **implements the calendar
   HTTP protocol natively** (ADR-0009): `submit` = `POST {calendar}/digest`; `upgrade` = `GET
-  {calendar}/timestamp/<commitment-hex>` (200 = Bitcoin path, 404 = still pending), splicing the returned ops
+{calendar}/timestamp/<commitment-hex>` (200 = Bitcoin path, 404 = still pending), splicing the returned ops
   onto the stored timestamp. ~200 LOC over `reqwest`, no Python/Node runtime. A shell-out path is kept behind an
   `ots-cli` feature only as a differential-test oracle.
 - **RFC 3161 (`thoughtmark-anchor-rfc3161`)** — pure-Rust via `x509-tsp` + `tsp-asn1` (RustCrypto). Because RFC
   3161 mandates a standard hash OID, when the root is SHA-256 the `messageImprint` is the root directly; the
   receipt records the imprint alg. Pin `x509-tsp` (low version) and add real-TSA conformance vectors.
 - **Fabric (`thoughtmark-anchor-fabric`, deferred Phase 4)** — for multi-party distrust: a chaincode keyed by
-  root hash with an N-of-M endorsement policy; the proof's strength *is* the policy. Fabric times are
+  root hash with an N-of-M endorsement policy; the proof's strength _is_ the policy. Fabric times are
   orderer-asserted (document as weaker than OTS/RFC 3161 — never present them as equivalent in the UI).
 
 ## 8.5 Scheduling and end-to-end composition
 
-`thoughtmark-anchor::AnchorScheduler` (async, clock-injected) decides *when* to checkpoint+anchor —
+`thoughtmark-anchor::AnchorScheduler` (async, clock-injected) decides _when_ to checkpoint+anchor —
 `Hybrid { max_entries: 256, max_seconds: 600 }` plus an `OnDemand` flush at session end is the default for a
 study session. It builds **one** signed checkpoint over the current tree and fans the single root to all
 configured backends concurrently; OTS `Pending` receipts are revisited by a background `upgrade` sweep. The join
@@ -1459,7 +1517,7 @@ turn a stack of timestamps into a tamper-evident append-only trail (anchor + con
 # 9. Cross-cutting: identity (DID/VC) & redaction / selective disclosure
 
 Two cross-cutting subsystems delivered as separate crates behind traits so the core stays dependency-light and
-pure. Core owns only the *byte-sensitive* parts (pure did:key decode; the salted-commitment format from §4.7);
+pure. Core owns only the _byte-sensitive_ parts (pure did:key decode; the salted-commitment format from §4.7);
 the I/O-bearing and policy parts live in `thoughtmark-identity` and `thoughtmark-redaction`.
 
 ## 9.1 Identity — `thoughtmark-identity`
@@ -1496,11 +1554,11 @@ pub trait IdentityResolver: Send + Sync {
 - **Verifiable Credentials (VCDM 2.0)** bind affiliation/role ("DID X is a licensed physician at Y") via the
   issuer's did:web; verified by `CredentialVerifier` (`ssi-vc`/`ssi-claims`, Data Integrity `eddsa-jcs-2022` or
   SD-JWT-VC). The **full VC is held off-ledger** (it may carry PII, crypto-shreddable); only `{vc_ref:
-  Digest, issuer, types}` is bound on-ledger (§5.2).
+Digest, issuer, types}` is bound on-ledger (§5.2).
 
 **Non-repudiable vs merely attested — the honesty band, made concrete and surfaced in the UI (§15):**
-*non-repudiable* = "the private key behind DID X produced a `verify_strict`-valid Ed25519 signature over exactly
-these canonical bytes" (all the signing layer proves); *attested* = "DID X belongs to Dr. Doe / is GPT-5 in a
+_non-repudiable_ = "the private key behind DID X produced a `verify_strict`-valid Ed25519 signature over exactly
+these canonical bytes" (all the signing layer proves); _attested_ = "DID X belongs to Dr. Doe / is GPT-5 in a
 genuine TEE / the human reviewed this" (only as good as the VC issuer / TEE attestation / a UI assertion). The
 verifier visually separates **signature valid** (cryptographic) from **claims attested by issuer Z**
 (trust-scoped) — the integrity-of-record-not-validity invariant at the identity layer.
@@ -1525,23 +1583,23 @@ Merkle/anchor proofs. Three composable schemes with explicit preserve/destroy se
 1. **Salted-hash field redaction (SD-JWT / RFC 9901)** — per-field selective disclosure (reveal the AI rationale
    but redact a patient identifier inside it). Follows RFC 9901 exactly (disclosure array `[salt, name, value]`;
    digest = `base64url-nopad(SHA-256(ASCII(disclosure_string)))`; `_sd`/`{"...":digest}`; `_sd_alg: "sha-256"`)
-   for SD-JWT-VC interop. This is a *separate hash domain* (SHA-256, RFC-9901 128-bit salts) from the Tier-0
+   for SD-JWT-VC interop. This is a _separate hash domain_ (SHA-256, RFC-9901 128-bit salts) from the Tier-0
    BLAKE3 content path — the byte-identity rule is to fix one JSON serialization (our JCS) and one
-   salt→base64url routine and treat the produced disclosure *string* as the immutable artifact (RFC 9901 hashes
-   the string, not re-derived JSON). *Preserves:* the signature over the credential, inclusion proof,
-   later-disclose-a-subset, non-correlatability. *Destroys:* the plaintext value (but not the existence/shape
+   salt→base64url routine and treat the produced disclosure _string_ as the immutable artifact (RFC 9901 hashes
+   the string, not re-derived JSON). _Preserves:_ the signature over the credential, inclusion proof,
+   later-disclose-a-subset, non-correlatability. _Destroys:_ the plaintext value (but not the existence/shape
    leak of `{"...":digest}`).
 2. **Redactable-Merkle subtree pruning** — drop a whole turn/entry while keeping the rest provable: replace the
    pruned leaf with its known `TreeHash` (or keep only a subtree root). The root is **unchanged**, so all
    anchored roots and consistency proofs stay valid; surviving leaves' audit paths now include the pruned hash.
-   RFC 6962 `0x00`/`0x01` separation (§6.1) prevents leaf-as-node confusion. *Preserves:* root, all proofs, the
-   *count and position* (you can prove "turn #7 existed and was removed"). *Destroys:* the pruned turn's content
-   and the ability to later prove its *contents*.
+   RFC 6962 `0x00`/`0x01` separation (§6.1) prevents leaf-as-node confusion. _Preserves:_ root, all proofs, the
+   _count and position_ (you can prove "turn #7 existed and was removed"). _Destroys:_ the pruned turn's content
+   and the ability to later prove its _contents_.
 3. **Crypto-shredding (GDPR Art. 17 / medical confidentiality)** — when even the salted digest must become
    meaningless: encrypt the plaintext at capture (XChaCha20-Poly1305, `chacha20poly1305`, 24-byte **injected**
-   nonce, per-subject key), commit the *ciphertext's* salted hash, store keys in a deletable `ShredKeyStore`;
-   erasure = delete the key (EDPB Guidelines 02/2025). *Preserves:* ledger structure, root, all proofs, the fact
-   an entry existed at T. *Destroys (irrecoverably):* the plaintext, for everyone. This is the only scheme fit
+   nonce, per-subject key), commit the _ciphertext's_ salted hash, store keys in a deletable `ShredKeyStore`;
+   erasure = delete the key (EDPB Guidelines 02/2025). _Preserves:_ ledger structure, root, all proofs, the fact
+   an entry existed at T. _Destroys (irrecoverably):_ the plaintext, for everyone. This is the only scheme fit
    for medical PII and the only one that truly erases low-entropy values.
 
 ```rust
@@ -1643,19 +1701,19 @@ site label) — because a Rust panic crossing WASM becomes an uncatchable `Runti
 `CanonError`/`SchemaError`/etc. map into this one `Error` via a published table (a stable cross-language
 contract):
 
-| Tier source variant | → `ErrorCode` | → TS string | → vector token |
-|---|---|---|---|
-| `CanonError::FloatNotAllowed` | `CanonNonDeterministicFloat` | `"CANON_NON_DETERMINISTIC_FLOAT"` | `CANON_NON_DETERMINISTIC_FLOAT` |
-| `CanonError::IntegerOutOfRange` | `CanonIntegerOutOfRange` | `"CANON_INTEGER_OUT_OF_RANGE"` | `CANON_INTEGER_OUT_OF_RANGE` |
-| `CanonError::UnknownCanonVersion` | `UnknownCanonVersion` | `"UNKNOWN_CANON_VERSION"` | `UNKNOWN_CANON_VERSION` |
-| Ed25519 `verify_strict` failure | `SigInvalid` | `"SIG_INVALID"` | `SIG_INVALID` |
-| inclusion recompute ≠ root | `MerkleProofInvalid` | `"MERKLE_PROOF_INVALID"` | `MERKLE_PROOF_INVALID` |
-| … (one row per `ErrorCode`) | … | … | … |
+| Tier source variant               | → `ErrorCode`                | → TS string                       | → vector token                  |
+| --------------------------------- | ---------------------------- | --------------------------------- | ------------------------------- |
+| `CanonError::FloatNotAllowed`     | `CanonNonDeterministicFloat` | `"CANON_NON_DETERMINISTIC_FLOAT"` | `CANON_NON_DETERMINISTIC_FLOAT` |
+| `CanonError::IntegerOutOfRange`   | `CanonIntegerOutOfRange`     | `"CANON_INTEGER_OUT_OF_RANGE"`    | `CANON_INTEGER_OUT_OF_RANGE`    |
+| `CanonError::UnknownCanonVersion` | `UnknownCanonVersion`        | `"UNKNOWN_CANON_VERSION"`         | `UNKNOWN_CANON_VERSION`         |
+| Ed25519 `verify_strict` failure   | `SigInvalid`                 | `"SIG_INVALID"`                   | `SIG_INVALID`                   |
+| inclusion recompute ≠ root        | `MerkleProofInvalid`         | `"MERKLE_PROOF_INVALID"`          | `MERKLE_PROOF_INVALID`          |
+| … (one row per `ErrorCode`)       | …                            | …                                 | …                               |
 
 ## 10.3 FFI mapping (`thoughtmark-wasm`)
 
 The wasm crate is the only place that touches `JsValue`. Every exported fn returns `Result<_, JsError>` so `Err`
-is a *catchable* JS exception; a single `to_js(e: CoreError) -> JsError` shim encodes `{code, message}` as
+is a _catchable_ JS exception; a single `to_js(e: CoreError) -> JsError` shim encodes `{code, message}` as
 canonical JSON so JS can `JSON.parse(err.message).code` deterministically; a Rust panic never crosses the
 boundary (the no-panic wall makes abort unreachable; `console_error_panic_hook` only in debug). The JS `now`
 arrives as `f64` and is narrowed to `i64 UnixMillis` with NaN/Inf/fractional rejection **at the boundary** so
@@ -1711,7 +1769,7 @@ BundleSchema → CanonVersion → DsseSignature → StatementBinding → MerkleI
   by `trusted_log_keys` with ≥ `required_witnesses` cosignatures (§6.6).
 - **Consistency** — `verify_consistency` if a proof is present (proves append-only across snapshots).
 - **AnchorReceipt** — `anchors.verify_anchor(checkpoint, receipt, params)` for each receipt; `time_lower_bound
-  ≤ now + max_clock_skew_ms`.
+≤ now + max_clock_skew_ms`.
 - **ContributionLineage** — walk the `Trail`'s `parents` DAG: no cycles, no dangling parent, every `supersedes`
   target exists; `attested_at` non-decreasing along the chain; `RunManifest` digest matches `run_manifest_ref`;
   `required_actions` are present. (This is the lineage/DAG validation the schema's `LedgerBrokenLink` /
@@ -1770,7 +1828,7 @@ other than the injected `now`); its JCS-canonical bytes' hash is exactly what `v
 
 # 12. WASM/TS binding architecture & the byte-identical guarantee
 
-The WASM/TS layer has one job: make the *same compiled Rust core* reachable from JS while changing **zero
+The WASM/TS layer has one job: make the _same compiled Rust core_ reachable from JS while changing **zero
 bytes** (I1). `thoughtmark-wasm` (the cdylib+rlib shim, §3) is consumed by one npm package, `@thoughtmark/core`.
 
 ## 12.1 The one rule: the boundary is a bytes-in / bytes-out airlock
@@ -1779,12 +1837,12 @@ bytes** (I1). `thoughtmark-wasm` (the cdylib+rlib shim, §3) is consumed by one 
 > may cross the boundary. Never a structured JS object, never an `f64` on a byte-significant path, never anything
 > `serde-wasm-bindgen` would re-encode.**
 
-This converts a list of *mitigations* into a single *structural elimination*. Canonicalization (RFC 8785 JCS),
+This converts a list of _mitigations_ into a single _structural elimination_. Canonicalization (RFC 8785 JCS),
 hashing, CIDv1, Merkle leaf/node hashing, DSSE PAE, and Ed25519 `verify_strict` all run **inside** the wasm
 module via the identical Rust code paths. JS never canonicalizes, never sorts keys, never formats a number,
 never hashes. Therefore the classic divergence sources — float NaN-bit nondeterminism, `i64`↔`Number`
 truncation, UTF-16↔UTF-8 round-trips, `JSON.parse`/`JSON.stringify` reordering, locale number formatting —
-*cannot occur on the trusted path because those operations are never performed in JS.*
+_cannot occur on the trusted path because those operations are never performed in JS._
 
 ```text
   app code →  @thoughtmark/core facade (Uint8Array / string / bigint ONLY across the line)
@@ -1803,33 +1861,40 @@ packages/core/             # @thoughtmark/core
 ```
 
 **Build ONE wasm, select the loader in JS.** `wasm-pack build crates/thoughtmark-wasm --target web` produces a
-single `.wasm` that works under Vite/webpack/Next.js *and* Node ≥20. **Do not** build a second `--target nodejs`
+single `.wasm` that works under Vite/webpack/Next.js _and_ Node ≥20. **Do not** build a second `--target nodejs`
 artifact of the core logic — two builds risk two non-identical binaries (this is why §15's Next.js app loads the
-*web* artifact in the Node runtime, not a separate node build). `index.ts` exposes a memoized async `init()`;
+_web_ artifact in the Node runtime, not a separate node build). `index.ts` exposes a memoized async `init()`;
 `node.ts`/`browser.ts` pick the instantiation path. `package.json` (validated by `publint` + `attw`):
 
 ```jsonc
 {
-  "name": "@thoughtmark/core", "type": "module", "license": "Apache-2.0",
+  "name": "@thoughtmark/core",
+  "type": "module",
+  "license": "Apache-2.0",
   "sideEffects": ["./dist/*.js", "*.wasm"],
   "exports": {
-    ".":      { "types": "./dist/index.d.ts", "node": "./dist/node.js",
-                "browser": "./dist/browser.js", "default": "./dist/index.js" },
-    "./wasm": "./wasm/thoughtmark_core_bg.wasm"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "node": "./dist/node.js",
+      "browser": "./dist/browser.js",
+      "default": "./dist/index.js",
+    },
+    "./wasm": "./wasm/thoughtmark_core_bg.wasm",
   },
-  "files": ["dist", "wasm", "LICENSE", "NOTICE", "CHANGELOG.md"], "engines": { "node": ">=20" }
+  "files": ["dist", "wasm", "LICENSE", "NOTICE", "CHANGELOG.md"],
+  "engines": { "node": ">=20" },
 }
 ```
 
 ## 12.3 Boundary type discipline
 
-| Crosses the line | Rust side | JS/TS side | Why safe |
-|---|---|---|---|
-| JSON document to canonicalize | `&[u8]` (raw UTF-8) | `Uint8Array` | No JS re-serialization; UTF-8 bytes enter wasm verbatim. |
-| Digests / proofs / PAE / canonical bytes out | `Vec<u8>` | `Uint8Array` (raw 32-byte digests, never hex/base64) | JS does zero formatting; hex/base64 lives in a separate `@thoughtmark/codec`. |
-| Tree size, leaf index (`u64`) | `u64`/`i64` | `bigint` | `wasm-bindgen` maps `u64/i64`→`BigInt`, `i32/u32/f64`→`Number`; typing as `u64` forces exact `BigInt`, defeating the 2⁵³ truncation hazard. |
-| Algorithm selector | `#[wasm_bindgen] enum HashAlg` | `"blake3" \| "sha256"` mapped in the facade | C-like integer enum on the hot path; no string per call. |
-| Errors | `core::Error` (§10) | thrown `JsError` carrying canonical `{code,message}` | One shim; never a raw Rust panic crossing the boundary. |
+| Crosses the line                             | Rust side                      | JS/TS side                                           | Why safe                                                                                                                                    |
+| -------------------------------------------- | ------------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| JSON document to canonicalize                | `&[u8]` (raw UTF-8)            | `Uint8Array`                                         | No JS re-serialization; UTF-8 bytes enter wasm verbatim.                                                                                    |
+| Digests / proofs / PAE / canonical bytes out | `Vec<u8>`                      | `Uint8Array` (raw 32-byte digests, never hex/base64) | JS does zero formatting; hex/base64 lives in a separate `@thoughtmark/codec`.                                                               |
+| Tree size, leaf index (`u64`)                | `u64`/`i64`                    | `bigint`                                             | `wasm-bindgen` maps `u64/i64`→`BigInt`, `i32/u32/f64`→`Number`; typing as `u64` forces exact `BigInt`, defeating the 2⁵³ truncation hazard. |
+| Algorithm selector                           | `#[wasm_bindgen] enum HashAlg` | `"blake3" \| "sha256"` mapped in the facade          | C-like integer enum on the hot path; no string per call.                                                                                    |
+| Errors                                       | `core::Error` (§10)            | thrown `JsError` carrying canonical `{code,message}` | One shim; never a raw Rust panic crossing the boundary.                                                                                     |
 
 **Forbidden across the boundary:** `serde-wasm-bindgen` object graphs (engine-dependent property order / number
 repr) and any `Number` for a byte-significant value. ESLint bans `JSON.stringify`/`JSON.parse` inside the hashing
@@ -1837,14 +1902,14 @@ facade modules.
 
 ## 12.4 Neutralizing each byte-identity threat — structurally
 
-| Threat | Structural mechanism |
-|---|---|
-| Float NaN-bit nondeterminism | *No floating-point instruction* on the canon/hash/CID/Merkle path; `f32/f64` in `disallowed-types`; decimals as scaled ints / strings (§4.3). No float executes → no NaN observable. |
-| `i64`/`BigInt` & >2⁵³ | Byte-significant integers live inside the wasm-produced canonical bytes, never as JS numbers; any surfaced `u64` is typed `bigint`; a >2⁵³ vector is in the corpus. |
-| UTF-16 vs UTF-8 | `Uint8Array` (UTF-8) is the canonical input; the `string` overload converts once at the boundary; all downstream processing is on UTF-8 bytes. |
-| `JSON.parse` reorder / `stringify` format | JS is contractually forbidden from parsing/serializing byte-significant JSON (ESLint-enforced). |
-| Number locale formatting | All number formatting is done by Rust, never `Number.prototype.toString`. |
-| Build-tool nondeterminism | Pin the toolchain; control/disable `wasm-opt` (§12.5). |
+| Threat                                    | Structural mechanism                                                                                                                                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Float NaN-bit nondeterminism              | _No floating-point instruction_ on the canon/hash/CID/Merkle path; `f32/f64` in `disallowed-types`; decimals as scaled ints / strings (§4.3). No float executes → no NaN observable. |
+| `i64`/`BigInt` & >2⁵³                     | Byte-significant integers live inside the wasm-produced canonical bytes, never as JS numbers; any surfaced `u64` is typed `bigint`; a >2⁵³ vector is in the corpus.                  |
+| UTF-16 vs UTF-8                           | `Uint8Array` (UTF-8) is the canonical input; the `string` overload converts once at the boundary; all downstream processing is on UTF-8 bytes.                                       |
+| `JSON.parse` reorder / `stringify` format | JS is contractually forbidden from parsing/serializing byte-significant JSON (ESLint-enforced).                                                                                      |
+| Number locale formatting                  | All number formatting is done by Rust, never `Number.prototype.toString`.                                                                                                            |
+| Build-tool nondeterminism                 | Pin the toolchain; control/disable `wasm-opt` (§12.5).                                                                                                                               |
 
 ## 12.5 Reproducible `.wasm` build (the single canonical statement)
 
@@ -1871,13 +1936,13 @@ Every exported fn returns `Result<_, JsError>` so `Err` is a catchable JS except
 shim encodes `{code, message}` as canonical JSON. **`verify()` returns a `VerificationResult` value, not a
 thrown error** — a failed proof is a value (`total: false`) so the honesty report reaches the UI; `JsError` is
 reserved for malformed input. JS `now` (f64) is narrowed to `i64 UnixMillis` with NaN/Inf/fractional rejection
-*at the boundary*. The TS facade re-throws a typed `ThoughtmarkError extends Error { code: ErrorCode }`.
+_at the boundary_. The TS facade re-throws a typed `ThoughtmarkError extends Error { code: ErrorCode }`.
 
 ---
 
 # 13. The cross-language conformance harness — the most load-bearing control
 
-`spec/vectors/` is the oracle (Quality Domain 4; §16 versions it). This harness *operationally* enforces I1.
+`spec/vectors/` is the oracle (Quality Domain 4; §16 versions it). This harness _operationally_ enforces I1.
 
 ## 13.1 Native Rust is the source of truth; everyone else must match it
 
@@ -1917,17 +1982,39 @@ spec/vectors/
 ```
 
 ```jsonc
-{ "vectors_version": "1.0.0",
-  "toolchain": { "rustc": "1.96.0", "wasm_bindgen": "0.2.125", "wasm_opt": "disabled" },
+{
+  "vectors_version": "1.0.0",
+  "toolchain": {
+    "rustc": "1.96.0",
+    "wasm_bindgen": "0.2.125",
+    "wasm_opt": "disabled",
+  },
   "cases": [
-    { "id": "canon/0001", "op": "canonicalize", "canon_version": "tm-jcs-1",
-      "input": "cases/canon/0001/input.json", "expected": "cases/canon/0001/expected.bin" },
-    { "id": "verify/0001", "op": "verify", "env": { "now_unix_ms": 1750000000000, "rng_seed_hex": "00..00" },
-      "input": ["cases/verify/0001/bundle.json","cases/verify/0001/policy.json"],
-      "expected": "cases/verify/0001/result.bin" },
-    { "id": "negative/0001", "op": "canonicalize", "input": "cases/negative/0001/input.json",
-      "expect_error": "CANON_NON_DETERMINISTIC_FLOAT" }
-  ] }
+    {
+      "id": "canon/0001",
+      "op": "canonicalize",
+      "canon_version": "tm-jcs-1",
+      "input": "cases/canon/0001/input.json",
+      "expected": "cases/canon/0001/expected.bin",
+    },
+    {
+      "id": "verify/0001",
+      "op": "verify",
+      "env": { "now_unix_ms": 1750000000000, "rng_seed_hex": "00..00" },
+      "input": [
+        "cases/verify/0001/bundle.json",
+        "cases/verify/0001/policy.json",
+      ],
+      "expected": "cases/verify/0001/result.bin",
+    },
+    {
+      "id": "negative/0001",
+      "op": "canonicalize",
+      "input": "cases/negative/0001/input.json",
+      "expect_error": "CANON_NON_DETERMINISTIC_FLOAT",
+    },
+  ],
+}
 ```
 
 The `env` block pins injected determinism (§10): the runner builds `FixedClock` and the gated `VectorCsprng`.
@@ -1941,7 +2028,7 @@ Negative vectors assert **both engines return the same `ErrorCode`** (fail-close
 3. **WASM + headless browsers** (Playwright across Chromium + Firefox + WebKit) — the empirical proof that no
    float/SIMD divergence leaked across engines.
 4. **Pure-TS independent oracle** (`cyberphone/canonicalize` + `@noble/hashes` + `multiformats`) — a second,
-   independently-authored implementation whose only job is to catch a *shared* Rust↔WASM bug (they share a
+   independently-authored implementation whose only job is to catch a _shared_ Rust↔WASM bug (they share a
    compiler), and to guard the UTF-16 JCS sort specifically (§4.2). Drift is investigated, never auto-blessed.
 
 ## 13.4 Differential fuzzing & CI gate
@@ -1960,30 +2047,31 @@ corpus release.
 # 14. The frozen public API surface — Rust signatures + TS mirror
 
 Frozen at the Phase-2 → 1.0 gate (§16, §17). The surface is **the verbs + their types + the extension-seam
-traits + the format-identifier *values***. `cargo-semver-checks` + `cargo-public-api` (Rust) and `api-extractor`
-+ changesets (TS) gate every PR. All time/RNG injected; `#![forbid(unsafe_code)]`, `#![deny(missing_docs)]`.
+traits + the format-identifier _values_**. `cargo-semver-checks` + `cargo-public-api` (Rust) and `api-extractor`
+
+- changesets (TS) gate every PR. All time/RNG injected; `#![forbid(unsafe_code)]`, `#![deny(missing_docs)]`.
 
 ## 14.1 The verbs (and where each lives)
 
-| Verb | Tier | Where / purity | One-line contract |
-|---|---|---|---|
-| `canonicalize` | 0 | core, pure | RFC 8785 JCS bytes; rejects float/non-finite. |
-| `hash` | 0 | core, pure | canonicalize → BLAKE3/SHA-256, `canon_version` bound into preimage. |
-| `append` / `inclusion_proof` / `verify_inclusion` | 1 | core, pure | RFC 6962 over `TreeHash` (SHA-256). |
-| `consistency_proof` / `verify_consistency` | 1 | core, pure | build / verify append-only. |
-| `sign` / `verify_envelope` | 7 | core, pure over injected `Signer` | DSSE-wrap / verify an in-toto Statement (Ed25519 `verify_strict`). |
-| `verify_anchor` | 2 | `thoughtmark-anchor`, pure (injected into `verify`) | replay an opaque `AnchorReceipt` vs injected trust material. |
-| `anchor` (submit) | 2 | `thoughtmark-anchor`, **async/shell** | submit a root to a backend → opaque-proof receipt. **Not a core fn.** |
-| `verify` | 11 | core, pure | offline end-to-end → `VerificationResult` (verdict + report). |
-| `redact` | 9 | `thoughtmark-redaction`, pure | salted-hash/prune/shred transform; proof-bearing digests unchanged. |
-| `export` | 5 | core, pure | lossy PROV-O / C2PA projection; **never re-hashed**. |
+| Verb                                              | Tier | Where / purity                                      | One-line contract                                                     |
+| ------------------------------------------------- | ---- | --------------------------------------------------- | --------------------------------------------------------------------- |
+| `canonicalize`                                    | 0    | core, pure                                          | RFC 8785 JCS bytes; rejects float/non-finite.                         |
+| `hash`                                            | 0    | core, pure                                          | canonicalize → BLAKE3/SHA-256, `canon_version` bound into preimage.   |
+| `append` / `inclusion_proof` / `verify_inclusion` | 1    | core, pure                                          | RFC 6962 over `TreeHash` (SHA-256).                                   |
+| `consistency_proof` / `verify_consistency`        | 1    | core, pure                                          | build / verify append-only.                                           |
+| `sign` / `verify_envelope`                        | 7    | core, pure over injected `Signer`                   | DSSE-wrap / verify an in-toto Statement (Ed25519 `verify_strict`).    |
+| `verify_anchor`                                   | 2    | `thoughtmark-anchor`, pure (injected into `verify`) | replay an opaque `AnchorReceipt` vs injected trust material.          |
+| `anchor` (submit)                                 | 2    | `thoughtmark-anchor`, **async/shell**               | submit a root to a backend → opaque-proof receipt. **Not a core fn.** |
+| `verify`                                          | 11   | core, pure                                          | offline end-to-end → `VerificationResult` (verdict + report).         |
+| `redact`                                          | 9    | `thoughtmark-redaction`, pure                       | salted-hash/prune/shred transform; proof-bearing digests unchanged.   |
+| `export`                                          | 5    | core, pure                                          | lossy PROV-O / C2PA projection; **never re-hashed**.                  |
 
 > **The `anchor` resolution (ADR-0008):** the roadmap's `anchor(root, backend)` is an **async shell verb** in
 > `thoughtmark-anchor` (it does network I/O). The audited core's anchor primitive is the **pure** `verify_anchor`
 > (§8.3), injected into `verify` as `&dyn AnchorVerifier`. Core exposes no sync `anchor()` that does I/O — that
 > would violate the pure-core boundary (P2).
 
-## 14.2 Format-identifier values (frozen as *values*, not crate versions — §16)
+## 14.2 Format-identifier values (frozen as _values_, not crate versions — §16)
 
 ```text
 canon_version    = "tm-jcs-1"                              // bound INTO hashed preimage; fail-closed on unknown
@@ -2058,54 +2146,139 @@ Two intentional boundary mappings (documented, not 1:1): `verify` takes `nowUnix
 ```ts
 export type CanonVersion = "tm-jcs-1";
 export type HashAlg = "blake3" | "sha256";
-export interface Digest   { alg: HashAlg; bytes: Uint8Array; }   // 32 raw bytes; hex lives in @thoughtmark/codec
-export type TreeHash = Uint8Array;                                // 32 raw SHA-256 bytes (tree)
+export interface Digest {
+  alg: HashAlg;
+  bytes: Uint8Array;
+} // 32 raw bytes; hex lives in @thoughtmark/codec
+export type TreeHash = Uint8Array; // 32 raw SHA-256 bytes (tree)
 export type ErrorCode =
-  | "CANON_INVALID_JSON" | "CANON_NON_DETERMINISTIC_FLOAT" | "CANON_INTEGER_OUT_OF_RANGE" | "UNKNOWN_CANON_VERSION"
-  | "UNKNOWN_HASH_ALG" | "DIGEST_MISMATCH" | "CID_MALFORMED"
-  | "SIG_INVALID" | "SIG_MALFORMED_KEY" | "DSSE_BAD_ENVELOPE" | "DSSE_PAYLOAD_TYPE_MISMATCH"
-  | "STATEMENT_SUBJECT_MISMATCH" | "PREDICATE_SCHEMA_INVALID"
-  | "MERKLE_PROOF_INVALID" | "MERKLE_INDEX_OUT_OF_RANGE" | "CONSISTENCY_PROOF_INVALID" | "CHECKPOINT_SIGNATURE_INVALID"
-  | "ANCHOR_RECEIPT_MALFORMED" | "ANCHOR_ROOT_MISMATCH" | "ANCHOR_TIME_IMPLAUSIBLE" | "ANCHOR_UNSUPPORTED_KIND"
-  | "LEDGER_BROKEN_LINK" | "LEDGER_NON_MONOTONIC_TIME"
-  | "REDACT_TARGET_NOT_FOUND" | "BUNDLE_SCHEMA_INVALID" | "BUNDLE_VERSION_UNSUPPORTED" | "POLICY_UNSATISFIED" | "INTERNAL";
-export class ThoughtmarkError extends Error { code!: ErrorCode; }
+  | "CANON_INVALID_JSON"
+  | "CANON_NON_DETERMINISTIC_FLOAT"
+  | "CANON_INTEGER_OUT_OF_RANGE"
+  | "UNKNOWN_CANON_VERSION"
+  | "UNKNOWN_HASH_ALG"
+  | "DIGEST_MISMATCH"
+  | "CID_MALFORMED"
+  | "SIG_INVALID"
+  | "SIG_MALFORMED_KEY"
+  | "DSSE_BAD_ENVELOPE"
+  | "DSSE_PAYLOAD_TYPE_MISMATCH"
+  | "STATEMENT_SUBJECT_MISMATCH"
+  | "PREDICATE_SCHEMA_INVALID"
+  | "MERKLE_PROOF_INVALID"
+  | "MERKLE_INDEX_OUT_OF_RANGE"
+  | "CONSISTENCY_PROOF_INVALID"
+  | "CHECKPOINT_SIGNATURE_INVALID"
+  | "ANCHOR_RECEIPT_MALFORMED"
+  | "ANCHOR_ROOT_MISMATCH"
+  | "ANCHOR_TIME_IMPLAUSIBLE"
+  | "ANCHOR_UNSUPPORTED_KIND"
+  | "LEDGER_BROKEN_LINK"
+  | "LEDGER_NON_MONOTONIC_TIME"
+  | "REDACT_TARGET_NOT_FOUND"
+  | "BUNDLE_SCHEMA_INVALID"
+  | "BUNDLE_VERSION_UNSUPPORTED"
+  | "POLICY_UNSATISFIED"
+  | "INTERNAL";
+export class ThoughtmarkError extends Error {
+  code!: ErrorCode;
+}
 
 export function init(wasmSource?: URL | Request | BufferSource): Promise<void>;
-export function canonVersion(): string;  export function coreVersion(): string;
+export function canonVersion(): string;
+export function coreVersion(): string;
 export function canonicalize(value: unknown, v?: CanonVersion): Uint8Array;
 export function hash(value: unknown, v?: CanonVersion, alg?: HashAlg): Digest;
 
-export interface TreeState { size: bigint; root: TreeHash; }
-export interface InclusionProof { leafIndex: bigint; treeSize: bigint; path: TreeHash[]; leaf: TreeHash; }
-export interface ConsistencyProof { first: bigint; second: bigint; path: TreeHash[]; }
-export interface MerkleReader { readNodes(ids: { level: number; index: bigint }[]): TreeHash[]; }
+export interface TreeState {
+  size: bigint;
+  root: TreeHash;
+}
+export interface InclusionProof {
+  leafIndex: bigint;
+  treeSize: bigint;
+  path: TreeHash[];
+  leaf: TreeHash;
+}
+export interface ConsistencyProof {
+  first: bigint;
+  second: bigint;
+  path: TreeHash[];
+}
+export interface MerkleReader {
+  readNodes(ids: { level: number; index: bigint }[]): TreeHash[];
+}
 export function append(prev: TreeState, leaf: Uint8Array): TreeState;
-export function inclusionProof(prev: TreeState, leafIndex: bigint, reader: MerkleReader): InclusionProof;
-export function consistencyProof(first: bigint, second: bigint, reader: MerkleReader): ConsistencyProof;
-export function verifyInclusion(p: InclusionProof, root: TreeHash): void;        // throws ThoughtmarkError on fail
-export function verifyConsistency(p: ConsistencyProof, oldRoot: TreeHash, newRoot: TreeHash): void;
+export function inclusionProof(
+  prev: TreeState,
+  leafIndex: bigint,
+  reader: MerkleReader,
+): InclusionProof;
+export function consistencyProof(
+  first: bigint,
+  second: bigint,
+  reader: MerkleReader,
+): ConsistencyProof;
+export function verifyInclusion(p: InclusionProof, root: TreeHash): void; // throws ThoughtmarkError on fail
+export function verifyConsistency(
+  p: ConsistencyProof,
+  oldRoot: TreeHash,
+  newRoot: TreeHash,
+): void;
 
-export interface Signer { keyId(): string; sign(msg: Uint8Array): Uint8Array; }
-export interface DsseEnvelope { payloadType: string; payload: Uint8Array; signatures: { keyid: string; sig: Uint8Array }[]; }
+export interface Signer {
+  keyId(): string;
+  sign(msg: Uint8Array): Uint8Array;
+}
+export interface DsseEnvelope {
+  payloadType: string;
+  payload: Uint8Array;
+  signatures: { keyid: string; sig: Uint8Array }[];
+}
 export function pae(payloadType: string, body: Uint8Array): Uint8Array;
-export function sign(statement: unknown, payloadType: string, signer: Signer, v?: CanonVersion): DsseEnvelope;
-export function verifyEnvelope(env: DsseEnvelope, keys: Uint8Array[]): unknown;  // returns the parsed Statement
+export function sign(
+  statement: unknown,
+  payloadType: string,
+  signer: Signer,
+  v?: CanonVersion,
+): DsseEnvelope;
+export function verifyEnvelope(env: DsseEnvelope, keys: Uint8Array[]): unknown; // returns the parsed Statement
 
 export function redact(entry: unknown, policy: unknown): unknown;
 export type ExportFormat = "prov-o" | "c2pa";
-export function export_(statement: unknown, fmt: ExportFormat): unknown;          // 'export' is reserved; documented rename. NOT re-hashed.
+export function export_(statement: unknown, fmt: ExportFormat): unknown; // 'export' is reserved; documented rename. NOT re-hashed.
 
 export interface VerificationResult {
-  schema: string; verifiedAt: bigint; total: boolean;
-  checks: { kind: string; status: "pass" | "fail" | "skipped"; code?: ErrorCode }[];
-  established: { existedAtOrBefore?: bigint; unalteredSinceCapture: boolean;
-                 lineage?: { participantKind: "human" | "ai"; action: string; at: bigint }[];
-                 boundSubjectDigest?: Digest; signedBy: string[]; logOrigin?: string; };
-  notEstablished: { validityOfRecord: string; faithfulness: string; authorshipTruth: string;
-                    completeness: string; timeUpperBoundOnly: string; };
+  schema: string;
+  verifiedAt: bigint;
+  total: boolean;
+  checks: {
+    kind: string;
+    status: "pass" | "fail" | "skipped";
+    code?: ErrorCode;
+  }[];
+  established: {
+    existedAtOrBefore?: bigint;
+    unalteredSinceCapture: boolean;
+    lineage?: { participantKind: "human" | "ai"; action: string; at: bigint }[];
+    boundSubjectDigest?: Digest;
+    signedBy: string[];
+    logOrigin?: string;
+  };
+  notEstablished: {
+    validityOfRecord: string;
+    faithfulness: string;
+    authorshipTruth: string;
+    completeness: string;
+    timeUpperBoundOnly: string;
+  };
 }
-export function verify(bundle: unknown, policy: unknown, nowUnixMs: bigint, anchorVerifier?: unknown): VerificationResult;
+export function verify(
+  bundle: unknown,
+  policy: unknown,
+  nowUnixMs: bigint,
+  anchorVerifier?: unknown,
+): VerificationResult;
 ```
 
 ## 14.7 Stability rules attached to this surface (summary; full policy §16)
@@ -2113,11 +2286,11 @@ export function verify(bundle: unknown, policy: unknown, nowUnixMs: bigint, anch
 - **Additive-only via `#[non_exhaustive]`:** new `HashAlg`/`Action`/`ApprovalScope`/`AnchorKind`/
   `AttestationKind`/`ErrorCode`/`CanonVersion` variants are MINOR; downstream verifiers carry a fail-closed
   `_ =>` arm (enforced by the §13 negative corpus).
-- **Changing emitted bytes ≠ code-MAJOR:** mutating what `canonicalize`/`hash` emit is a *new* `canon_version` +
+- **Changing emitted bytes ≠ code-MAJOR:** mutating what `canonicalize`/`hash` emit is a _new_ `canon_version` +
   MAJOR corpus release + MINOR code release (add `canon_v2`, never mutate `canon_v1`; old modules frozen).
 - **`export` is the firewall** (P6): its output is never re-hashed, so C2PA/CAWG/PROV-O churn can't become a
   byte-format break.
-- **Plugins depend on a *range* of core** (`>=X, <X+1`); the TS gate additionally asserts **no `number` leaks
+- **Plugins depend on a _range_ of core** (`>=X, <X+1`); the TS gate additionally asserts **no `number` leaks
   into any proof type**.
 
 ---
@@ -2125,8 +2298,8 @@ export function verify(bundle: unknown, policy: unknown, nowUnixMs: bigint, anch
 # 15. Reference app (MedQBank) — Next.js / Supabase
 
 A thin Next.js (App Router, **Node runtime**) + Supabase (Postgres/Auth/Storage) demonstrator whose single job
-is to prove `thoughtmark-core` works end-to-end **without ever weakening the trust story**. It is a *demo of the
-library*, never the product.
+is to prove `thoughtmark-core` works end-to-end **without ever weakening the trust story**. It is a _demo of the
+library_, never the product.
 
 ## 15.1 Where the WASM runs — and why
 
@@ -2163,7 +2336,7 @@ shreddable (§9).
 
 ## 15.3 Periodic root anchoring job
 
-Two-level Merkle: each session has its own append-only log; a periodic job builds a *batch tree* over session
+Two-level Merkle: each session has its own append-only log; a periodic job builds a _batch tree_ over session
 roots changed since the last anchor and anchors only that single batch root (Tier 2). Mechanism (current
 Supabase pattern): `pg_cron` (`*/10 * * * *`) → `pg_net.http_post` → an `anchor-roots` Edge Function (secrets via
 Supabase **Vault**). To keep the single-oracle principle, the Edge Function is a **thin scheduler shim** that
@@ -2263,16 +2436,16 @@ into `ledger_entry` nor read another user's session.
 # 16. Versioning & evolution
 
 Three independently-versioned but causally-linked trains (P4). The rule that ties them: **changing any byte that
-flows into a hash/signature/proof is simultaneously (a) a new format-identifier *value*, (b) a MAJOR corpus
+flows into a hash/signature/proof is simultaneously (a) a new format-identifier _value_, (b) a MAJOR corpus
 release, and (c) usually only a MINOR code release** — you add `canon_v2`, never mutate `canon_v1`. Code-SemVer
 breakage and byte-format breakage are orthogonal axes, kept orthogonal so retained artifacts survive code
 upgrades.
 
-| Train | Artifact | Governs | Gate |
-|---|---|---|---|
-| **Code SemVer** | `thoughtmark-core` (crate) + `@thoughtmark/core` (npm) | the callable API surface (§14) | `cargo-semver-checks` + `cargo-public-api` snapshot (Rust); `api-extractor` report + changesets (TS) |
-| **Corpus SemVer** | `spec/vectors/` → `thoughtmark-vectors` / `@thoughtmark/vectors` | the authoritative expected bytes | any expected-byte change = MAJOR; `byte-parity` CI; corpus is a `dev-dependency`, so a MAJOR forces an explicit reviewed bump in both engines |
-| **Format identifiers** | `canon_version="tm-jcs-1"`, `predicateType=…/Provenance/v1`, DSSE `payloadType`, `bundle media_type`+`bundle_version` | values baked *inside* hashed bytes | a `release-train-consistency` CI check refuses a byte mutation unless a new value is introduced |
+| Train                  | Artifact                                                                                                              | Governs                            | Gate                                                                                                                                          |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Code SemVer**        | `thoughtmark-core` (crate) + `@thoughtmark/core` (npm)                                                                | the callable API surface (§14)     | `cargo-semver-checks` + `cargo-public-api` snapshot (Rust); `api-extractor` report + changesets (TS)                                          |
+| **Corpus SemVer**      | `spec/vectors/` → `thoughtmark-vectors` / `@thoughtmark/vectors`                                                      | the authoritative expected bytes   | any expected-byte change = MAJOR; `byte-parity` CI; corpus is a `dev-dependency`, so a MAJOR forces an explicit reviewed bump in both engines |
+| **Format identifiers** | `canon_version="tm-jcs-1"`, `predicateType=…/Provenance/v1`, DSSE `payloadType`, `bundle media_type`+`bundle_version` | values baked _inside_ hashed bytes | a `release-train-consistency` CI check refuses a byte mutation unless a new value is introduced                                               |
 
 **Forward verifiability** (a 2026 artifact still verifies in 2030 after the rules change): `canon_version` is
 bound inside the preimage (§4.5); the verifier dispatches on the embedded version to a frozen `canon_vN` module
@@ -2294,14 +2467,14 @@ endgame.
 
 # 17. Mapping architecture components to roadmap Phases 0–5
 
-| Phase | Architecture components that land | Freeze gate |
-|---|---|---|
-| **0 — Tier 0 core** | §4 (`canon`/`hash`/`cid`, `tm-jcs-1`); the determinism runtime §10; `spec/vectors` v0.x; `cargo-public-api`/`api-extractor` snapshots; `byte-parity` CI against stubs. | Nothing frozen (0.x). |
-| **1 — Tier 1 log + signing** | §6 (`merkle`/`checkpoint`, `thoughtmark-log`); §7 (DSSE/in-toto/predicate, `ThoughtmarkBundle`); §5 schema (`Provenance/v1`); §12/§13 WASM + conformance. | **Freeze candidate: the wire format.** |
-| **2 — API FREEZE → 1.0** | §11 `verify` pipeline; §14 surface clean under `cargo-semver-checks`. Publish `thoughtmark-core 1.0.0` + `@thoughtmark/core 1.0.0` + `thoughtmark-vectors 1.0.0` together; pin the toolchain in `manifest.json`. | The verbs + types + traits + format-identifier values are immutable except by §16 rules. |
-| **3 — Tier 2 anchoring** | §8 (`thoughtmark-anchor` + `-ots` + `-rfc3161`, the injected `AnchorVerifier`); §15 reference-app anchoring job; `thoughtmark-monitor`. | Core stays 1.x (MINOR per new `AnchorKind`). |
-| **4 — Tier 3 + multi-party (deferred/optional)** | §9 `thoughtmark-attest-tee` (NRAS/Phala) against the frozen `Attestor`; `thoughtmark-anchor-fabric`; populate predicate `inference_attestation` (additive). | Core stays 1.x. |
-| **5 — interop + redaction hardening + standardization** | §9 `thoughtmark-c2pa`/CAWG, `export(ProvO\|C2pa)`; redactable-Merkle + crypto-shredding mature; submit the schema as an Internet-Draft. | Export churn contained (never re-hashed, P6); any breaking canon change is `tm-jcs-2` + `Provenance/v2` + corpus 2.0.0 while 1.x keeps verifying. |
+| Phase                                                   | Architecture components that land                                                                                                                                                                                | Freeze gate                                                                                                                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0 — Tier 0 core**                                     | §4 (`canon`/`hash`/`cid`, `tm-jcs-1`); the determinism runtime §10; `spec/vectors` v0.x; `cargo-public-api`/`api-extractor` snapshots; `byte-parity` CI against stubs.                                           | Nothing frozen (0.x).                                                                                                                             |
+| **1 — Tier 1 log + signing**                            | §6 (`merkle`/`checkpoint`, `thoughtmark-log`); §7 (DSSE/in-toto/predicate, `ThoughtmarkBundle`); §5 schema (`Provenance/v1`); §12/§13 WASM + conformance.                                                        | **Freeze candidate: the wire format.**                                                                                                            |
+| **2 — API FREEZE → 1.0**                                | §11 `verify` pipeline; §14 surface clean under `cargo-semver-checks`. Publish `thoughtmark-core 1.0.0` + `@thoughtmark/core 1.0.0` + `thoughtmark-vectors 1.0.0` together; pin the toolchain in `manifest.json`. | The verbs + types + traits + format-identifier values are immutable except by §16 rules.                                                          |
+| **3 — Tier 2 anchoring**                                | §8 (`thoughtmark-anchor` + `-ots` + `-rfc3161`, the injected `AnchorVerifier`); §15 reference-app anchoring job; `thoughtmark-monitor`.                                                                          | Core stays 1.x (MINOR per new `AnchorKind`).                                                                                                      |
+| **4 — Tier 3 + multi-party (deferred/optional)**        | §9 `thoughtmark-attest-tee` (NRAS/Phala) against the frozen `Attestor`; `thoughtmark-anchor-fabric`; populate predicate `inference_attestation` (additive).                                                      | Core stays 1.x.                                                                                                                                   |
+| **5 — interop + redaction hardening + standardization** | §9 `thoughtmark-c2pa`/CAWG, `export(ProvO\|C2pa)`; redactable-Merkle + crypto-shredding mature; submit the schema as an Internet-Draft.                                                                          | Export churn contained (never re-hashed, P6); any breaking canon change is `tm-jcs-2` + `Provenance/v2` + corpus 2.0.0 while 1.x keeps verifying. |
 
 ---
 
@@ -2310,27 +2483,27 @@ endgame.
 Each becomes a MADR file in `docs/adr/`. (ADR-0001 is the day-one JCS-crate decision required by
 `quality-foundations.md`.)
 
-| ADR | Decision | Rationale (one line) |
-|---|---|---|
-| 0001 | **JCS crate = `serde_json_canonicalizer`; `serde_jcs` banned** *(amended Phase 1: `serde_json_canonicalizer` is std-only → canonicalize in-house in `canon::jcs`, crate is a dev-only differential oracle)* | `serde_jcs` is abandoned with RFC 8785 divergences; the canonicalizer choice *is* a byte-format/spec decision (I2). |
-| 0002 | **One `thoughtmark-core` + separate `thoughtmark-schema`**, not a `-canon`/`-crypto`/`-merkle` split | Audit one trusted unit; modules separate cleanly so a later split is mechanical. |
-| 0003 | **`just` + pnpm scripts, no Turborepo in v1** | `just ci` already orders Cargo→wasm→TS; Turborepo adds misconfigurable surface. |
-| 0004 | **No umbrella meta-crate; explicit per-plugin deps** | Keeps the graph legible for `cargo-deny`/`cargo-vet`; prevents feature-unification leakage into `no_std` core. |
-| 0005 | **Reimplement RFC 6962 in core; external CT crates as differential oracles only** | Must be byte-identical in WASM + `forbid(unsafe)` + offline-deterministic; an external dep risks domain/leaf mismatch. |
-| 0006 | **`fuzz/` outside the workspace** | `cargo-fuzz` pins nightly; would drag the whole workspace off the 1.96.0 stable pin. |
-| 0007 | **Exactly one DSSE signature per sealed turn** | Mirrors the Sigstore bundle constraint; keeps the Merkle leaf canonical. Multi-party co-signing is a separate counter-signature layer. |
-| 0008 | **`anchor` (submit) is async/shell; core exposes only the pure `verify_anchor` via an injected `AnchorVerifier`** | Network I/O cannot live in the pure-sync core (P2); DER/CMS/OTS parsers stay out of the audited core. |
-| 0009 | **OTS plugin implements the calendar HTTP protocol natively** | `rust-opentimestamps` 0.7.2 only parses/replays; a shell-out adds a Python/Node runtime (kept only as a test oracle). |
-| 0010 | **Vendor a ~60-LOC pure `did:key` decoder into core** | It is on the byte-identity-critical path that must match WASM/TS exactly; the audited core should own it. `did:web`/VC stay in `thoughtmark-identity`. |
-| 0011 | **Redaction = sign-over-the-salted-commitment; no exotic redactable-signature crypto in v1** | Keeps `ed25519-dalek` `verify_strict` the only signature primitive (I6); true RSS deferred as research. |
-| 0012 | **Salt is external to the hashed leaf** | A salt committed inside signed/logged bytes could never be deleted, defeating crypto-shredding (I5, §4.7). |
-| 0013 | **Transparency tree pinned to SHA-256 with a distinct `TreeHash` newtype** | RFC 6962 / C2SP / witness interop; the type prevents confusing a BLAKE3 content `Digest` with a tree node. |
+| ADR  | Decision                                                                                                                                                                                                    | Rationale (one line)                                                                                                                                   |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0001 | **JCS crate = `serde_json_canonicalizer`; `serde_jcs` banned** _(amended Phase 1: `serde_json_canonicalizer` is std-only → canonicalize in-house in `canon::jcs`, crate is a dev-only differential oracle)_ | `serde_jcs` is abandoned with RFC 8785 divergences; the canonicalizer choice _is_ a byte-format/spec decision (I2).                                    |
+| 0002 | **One `thoughtmark-core` + separate `thoughtmark-schema`**, not a `-canon`/`-crypto`/`-merkle` split                                                                                                        | Audit one trusted unit; modules separate cleanly so a later split is mechanical.                                                                       |
+| 0003 | **`just` + pnpm scripts, no Turborepo in v1**                                                                                                                                                               | `just ci` already orders Cargo→wasm→TS; Turborepo adds misconfigurable surface.                                                                        |
+| 0004 | **No umbrella meta-crate; explicit per-plugin deps**                                                                                                                                                        | Keeps the graph legible for `cargo-deny`/`cargo-vet`; prevents feature-unification leakage into `no_std` core.                                         |
+| 0005 | **Reimplement RFC 6962 in core; external CT crates as differential oracles only**                                                                                                                           | Must be byte-identical in WASM + `forbid(unsafe)` + offline-deterministic; an external dep risks domain/leaf mismatch.                                 |
+| 0006 | **`fuzz/` outside the workspace**                                                                                                                                                                           | `cargo-fuzz` pins nightly; would drag the whole workspace off the 1.96.0 stable pin.                                                                   |
+| 0007 | **Exactly one DSSE signature per sealed turn**                                                                                                                                                              | Mirrors the Sigstore bundle constraint; keeps the Merkle leaf canonical. Multi-party co-signing is a separate counter-signature layer.                 |
+| 0008 | **`anchor` (submit) is async/shell; core exposes only the pure `verify_anchor` via an injected `AnchorVerifier`**                                                                                           | Network I/O cannot live in the pure-sync core (P2); DER/CMS/OTS parsers stay out of the audited core.                                                  |
+| 0009 | **OTS plugin implements the calendar HTTP protocol natively**                                                                                                                                               | `rust-opentimestamps` 0.7.2 only parses/replays; a shell-out adds a Python/Node runtime (kept only as a test oracle).                                  |
+| 0010 | **Vendor a ~60-LOC pure `did:key` decoder into core**                                                                                                                                                       | It is on the byte-identity-critical path that must match WASM/TS exactly; the audited core should own it. `did:web`/VC stay in `thoughtmark-identity`. |
+| 0011 | **Redaction = sign-over-the-salted-commitment; no exotic redactable-signature crypto in v1**                                                                                                                | Keeps `ed25519-dalek` `verify_strict` the only signature primitive (I6); true RSS deferred as research.                                                |
+| 0012 | **Salt is external to the hashed leaf**                                                                                                                                                                     | A salt committed inside signed/logged bytes could never be deleted, defeating crypto-shredding (I5, §4.7).                                             |
+| 0013 | **Transparency tree pinned to SHA-256 with a distinct `TreeHash` newtype**                                                                                                                                  | RFC 6962 / C2SP / witness interop; the type prevents confusing a BLAKE3 content `Digest` with a tree node.                                             |
 
 ---
 
 # 19. Architecture-level threat considerations
 
-This is the structural complement to `docs/threat-model.md`. It states what the *shape of the code* defends, and
+This is the structural complement to `docs/threat-model.md`. It states what the _shape of the code_ defends, and
 the residual threats it deliberately does not.
 
 **What the structure proves (integrity-of-record):**
@@ -2347,7 +2520,7 @@ the residual threats it deliberately does not.
   `.wasm` (§12.5), `#![forbid(unsafe_code)]`, the no-panic wall, `cargo-deny`/`cargo-vet`, SHA-pinned CI, and the
   dependency-direction CI assertion (§3.3) are all structural, dogfooding the mission.
 
-**Residual threats the architecture *bounds* but does not eliminate (and surfaces honestly):**
+**Residual threats the architecture _bounds_ but does not eliminate (and surfaces honestly):**
 
 - **Split-view / log equivocation** — inclusion proofs alone cannot detect a forked log. Bounded by C2SP witness
   cosignatures (the `Policy.required_witnesses` k-of-n requirement, §11.1), `thoughtmark-monitor` consistency
@@ -2364,24 +2537,19 @@ the residual threats it deliberately does not.
   and the rule that the verifier never fetches (§8.3). Fabric time is orderer-asserted and labeled weaker than
   OTS/RFC 3161.
 - **Attribution gaming** (a human pasting AI text and claiming authorship, or vice versa) — attribution is
-  *participant-attested*, not forensically proven; the honesty frame (`attributed_to`, `ApprovalScope`,
+  _participant-attested_, not forensically proven; the honesty frame (`attributed_to`, `ApprovalScope`,
   `NotEstablished.authorship_truth`) makes this explicit rather than overclaiming.
 
 The throughline: every guarantee the structure makes is reported as a discrete, machine-readable check, and
 every limit is encoded as a permanent non-claim — so a green verdict can never be silently read as a claim about
-the *content* being notarized.
+the _content_ being notarized.
 
 ---
 
-*This document is the code-architecture contract for `thoughtmark`. It is internally consistent by construction:
+_This document is the code-architecture contract for `thoughtmark`. It is internally consistent by construction:
 one value per hashed string (`tm-jcs-1`, `https://thoughtmark.dev/Provenance/v1`,
 `application/vnd.in-toto+json`), one definition per wire type (`Digest` → `{alg,bytes_hex}`, `UnixMillis` → a
 decimal string, `ContentDigest::Hashed` carries no salt, the transparency tree is SHA-256 `TreeHash`), and one
 `ErrorCode` set across Rust, TS, and the vector corpus. The most load-bearing control remains the cross-language
 conformance harness (§13); the most load-bearing principle remains that the system proves integrity-of-record,
-never validity or faithfulness (§1.1, §11, I7).*
-
-
-
-
-
+never validity or faithfulness (§1.1, §11, I7)._

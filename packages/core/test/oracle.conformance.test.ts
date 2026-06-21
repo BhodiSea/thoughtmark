@@ -752,6 +752,11 @@ describe("independent pure-TS oracle (cyberphone + noble + multiformats)", () =>
     expect(manifest.cases.length).toBeGreaterThan(0);
 
     for (const c of manifest.cases) {
+      // Executor D (this independent oracle) guards the Tier-0 canon/hash primitives against a shared Rust↔WASM
+      // compiler bug; it deliberately does NOT reimplement the composite §11 `verify()` orchestrator (that would
+      // be a second full pipeline). Verify byte-parity IS gated — executors A (native Rust) and B (WASM under
+      // Node) both reproduce every `verify/*` vector — so the `verify` op is out of this oracle's scope.
+      if (c.op === "verify") continue;
       const input = read(root, c.input);
       let output: Uint8Array | undefined;
       let thrown: string | undefined;

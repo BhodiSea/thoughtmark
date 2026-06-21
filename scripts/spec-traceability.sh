@@ -6,7 +6,7 @@
 set -euo pipefail
 SPEC="spec/SPEC.md"
 VECDIR="spec/vectors"
-areas='CANON|HASH|CID|SIG|LOG|CORE|SCHEMA|BUNDLE'
+areas='CANON|HASH|CID|SIG|LOG|CORE|SCHEMA|BUNDLE|VERIFY|POLICY'
 
 defined="$(grep -hoE "\\b($areas)-[0-9]+\\b" "$SPEC" | sort -u)"
 used="$(grep -rhoE '"spec_req"[[:space:]]*:[[:space:]]*"[^"]+"' "$VECDIR" \

@@ -69,6 +69,7 @@ ci-docs:
     #!/usr/bin/env bash
     set -euo pipefail
     ./scripts/spec-traceability.sh
+    ./scripts/assert-manifest-toolchain.sh
     if command -v reuse >/dev/null 2>&1; then reuse lint; else echo "note: reuse not installed (pipx install reuse)"; fi
 
 # --- convenience ---
@@ -109,3 +110,34 @@ verify-determinism: ci-wasm
     [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
     cargo nextest run -p thoughtmark-testkit --test conformance --locked
     pnpm --filter @thoughtmark/core test:conformance
+
+# --- Phase 3 freeze / release gates (the CI jobs that invoke these are wired by a human; see
+#     docs/phase-3-release-checklist.md — they touch .github/** which the AI author cannot edit) ---
+
+# Release-train + manifest-toolchain consistency (run in CI with fetch-depth:0 so origin/main is available).
+release-checks BASE="origin/main":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./scripts/release-train-consistency.sh "{{BASE}}"
+    ./scripts/assert-manifest-toolchain.sh
+
+# Mutation-test the verify pipeline (slow — deliberately NOT in the default `just ci`). Needs `cargo install cargo-mutants`.
+mutants:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+    cargo mutants --in-place
+
+# Code-SemVer / API-freeze gates for the Rust surface (best-effort: each tool is skipped with a note if not
+# installed). The TS gates (api-extractor `api:check`, `changeset status`) and the blocking CI jobs are wired by a
+# human per docs/phase-3-release-checklist.md (they need devDep installs + a nightly rustdoc + a published baseline).
+ci-api:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+    if command -v cargo-public-api >/dev/null 2>&1; then \
+      cargo public-api -p thoughtmark-core diff --deny=all || echo "cargo-public-api: review the surface diff"; \
+    else echo "note: cargo-public-api not installed (cargo install cargo-public-api --locked; needs a nightly rustdoc)"; fi
+    if command -v cargo-semver-checks >/dev/null 2>&1; then \
+      cargo semver-checks check-release -p thoughtmark-core || echo "cargo-semver-checks: review (needs a published baseline)"; \
+    else echo "note: cargo-semver-checks not installed (cargo install cargo-semver-checks --locked)"; fi

@@ -5,6 +5,55 @@ The corpus is versioned independently from the code (its own SemVer in `VERSION`
 MAJOR corpus release. Three version axes are never conflated: code SemVer, corpus SemVer, and the format
 identifiers baked into hashed bytes (arch P4).
 
+## [0.9.0] — `verify()` red-team gate-net vectors (additive)
+
+Adds 15 `verify` op vectors (`verify/0005`–`verify/0019`) that close the negative-path coverage gap a Linus-level
+red team found in the 0.8.0 corpus: of the nine checks, only `DsseSignature`/`AnchorReceipt`/`ContributionLineage`
+had a failing vector, so the k-of-n threshold, the tree-size binding, the `expected_subject_digest` gate, and the
+lineage DAG's structural failure modes were mutation-dead. **Additive only — no pre-existing expected byte changed**
+(`vector_count` 111 → 126), a MINOR release. Every failure case isolates exactly ONE check and is a positive vector
+(a tamper is a *successful run with `total:false`*, never an error envelope).
+
+- **`verify/0005` (POLICY-1) — k-of-n 2-of-2 PASS.** Two DISTINCT trusted log keys cosign one checkpoint;
+  `required_witnesses:2` ⇒ `Checkpoint` passes with `detail.matched:2, required:2` (pins distinct-key counting and
+  the `max(1, required)` floor for `n>1`).
+- **`verify/0006` (VERIFY-3) — `BundleSchema`** fails `BUNDLE_VERSION_UNSUPPORTED` (unsupported `bundle_version`).
+- **`verify/0007` (VERIFY-3) — `CanonVersion`** fails `UNKNOWN_CANON_VERSION` (canon not in `accepted_canon_versions`).
+- **`verify/0008`–`0011` (VERIFY-3) — `StatementBinding`** fails `STATEMENT_SUBJECT_MISMATCH` four ways: a corrupted
+  subject digest; a bound `tree_size` ≠ the inclusion proof's; a policy `expected_subject_digest` mismatch; and a
+  non-singleton `subject` set.
+- **`verify/0012`, `0016` (VERIFY-3) — `MerkleInclusion`** fails `MERKLE_PROOF_INVALID`: a leaf not under the
+  (re-signed) checkpoint root, and a signed checkpoint `size` ≠ the proof `tree_size`.
+- **`verify/0013`–`0015` (VERIFY-3/POLICY-1) — `Checkpoint`** fails `CHECKPOINT_SIGNATURE_INVALID`: an untrusted log
+  key, a k-of-n shortfall (`required_witnesses:2`, one cosignature), and a policy `log_origin` mismatch.
+- **`verify/0017`–`0019` (VERIFY-3) — `ContributionLineage`** fails `LEDGER_BROKEN_LINK`: a declared turn with no
+  stapled body (mandatory lineage), a duplicate stapled body, and a `run_manifest_ref` with no stapled manifest.
+
+## [0.8.0] — `verify()` pipeline vectors (additive)
+
+Adds the first `verify` op vectors (arch §11, Phase 3): the offline `verify()` orchestrator over a stapled
+`ThoughtmarkBundle`, pinning the JCS-canonical `VerificationResult` bytes native Rust ⟷ WASM/TS. **Additive only —
+no pre-existing expected byte changed** (`vector_count` 106 → 111), a MINOR release. The `verify` op's injected
+`now` is carried INSIDE each case's `input.json` (an `env.now_unix_ms` field), so cases remain pure functions of
+their `input` bytes; a tamper is a *successful run with `total:false`*, so the verify failure cases are positive
+vectors (full expected `VerificationResult`), not error-envelope negatives.
+
+- **`verify/0001` (VERIFY-1) — all-pass.** A signed two-turn trail (AI `create` + human `approve`, with a stapled
+  run manifest): every required check passes, `total:true`, `Established.lineage` is populated, the constant
+  `NotEstablished` honesty frame (I7) is present, `Consistency`/`AnchorReceipt` are `Skipped` (inert at 1.0).
+- **`verify/0002` (VERIFY-2) — tampered signature.** One signature byte flipped: `DsseSignature` fails
+  `SIG_INVALID` and `unaltered_since_capture` is `false`, but `StatementBinding`/`MerkleInclusion`/`Checkpoint`/
+  `ContributionLineage` still pass on the intact record — the honesty report survives a `total:false` run (one
+  failure never masks another).
+- **`verify/0003` (POLICY-1) — `require_anchor` fails closed.** With `require_anchor:true` and no anchor present
+  (no `AnchorVerifier` ships until Phase 4), `AnchorReceipt` fails and `existed_at_or_before` stays `null`.
+- **`verify/0004` (POLICY-1) — required action absent.** A `Policy.required_actions` not in the ledger →
+  `ContributionLineage` fails `POLICY_UNSATISFIED`.
+- **`negative/0044` (VERIFY-1) — malformed verify input** → `BUNDLE_SCHEMA_INVALID` (the one true error-envelope
+  case: malformed INPUT, not a tamper).
+- `bundle/0001` and `negative/0016` **inputs** were regenerated to the real two-turn bundle (their expected
+  outputs — `ok.txt` / `BUNDLE_SCHEMA_INVALID` — are unchanged), so this remains additive.
+
 ## [0.7.0] — Authoritative external vectors + large-tree Merkle (additive)
 
 Imports published third-party test corpora so the corpus is no longer self-blessed from the same core it validates
