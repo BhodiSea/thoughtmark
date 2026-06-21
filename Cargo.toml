@@ -75,13 +75,20 @@ doc_markdown = "allow"
 # correctness/security/determinism/no-panic gate; cargo-deny remains the authority. (priority 0 > the cargo
 # group's -1, so this single lint is allowed without relaxing the rest of `clippy::cargo`.)
 multiple_crate_versions = "allow"
-# no-panic wall (a panic crossing the WASM boundary is an uncatchable RuntimeError, arch §2.3).
-# Relax per-crate ONLY with justification (e.g. test harnesses, where a panic is the failure signal).
+# The no-panic wall — the FULL nine restriction lints, workspace-wide (a panic crossing the WASM boundary is an
+# uncatchable RuntimeError, arch §2.3). The `no_std` island crates (core + schema) ALSO pin these nine via
+# `#![deny(...)]` in their `lib.rs` as load-bearing in-file documentation of the audited, byte-identical surface.
+# Relax per-crate ONLY with justification (e.g. the `tests/` integration harnesses carry `#![allow(...)]` headers
+# because a panic there IS the failure signal).
 unwrap_used = "deny"
 expect_used = "deny"
 panic = "deny"
 indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+unreachable = "deny"
+todo = "deny"
 float_arithmetic = "deny"
+string_slice = "deny"
 
 [profile.release]
 # NOTE: `trim-paths = "all"` (RFC 3127 reproducible paths) is gated as unstable in this toolchain's cargo, so it

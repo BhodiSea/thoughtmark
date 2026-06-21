@@ -94,6 +94,25 @@ proptest! {
         prop_assert_eq!(a.0, manual);
     }
 
+    /// `turn_id` is stable under a JCS key re-sort: the SAME logical turn serialized with non-canonical object
+    /// key order yields the IDENTICAL `turn_id` once it passes through the JCS choke point. `serde_json` emits
+    /// struct fields in declaration order (`schema_version` first), which is NOT the alphabetical JCS order
+    /// (`canon_version` first) — so this is a genuine top-level key reordering for every generated turn, pinning
+    /// the §5.12 re-sort invariance at the schema level (not only at core's JCS layer).
+    // `serde_json::to_string` is the I2 `disallowed-methods` ban (no hashing outside the canon choke point); here
+    // it is the deliberate *source of non-canonical bytes*, which are then re-canonicalized via `canonicalize_str`
+    // BEFORE hashing — so I2 holds. The scoped allow keeps the ban active for the rest of the file.
+    #[allow(clippy::disallowed_methods)]
+    #[test]
+    fn turn_id_stable_under_key_reordering(turn in arb_turn()) {
+        let id = turn_id(&turn).unwrap();
+        let reordered = serde_json::to_string(&turn).unwrap();
+        let recanon = canon::canonicalize_str(&reordered).unwrap();
+        let id_from_reordered =
+            TurnId(canon::hash_domain(HashAlg::Blake3, canon::domain::TURN, &recanon));
+        prop_assert_eq!(id, id_from_reordered);
+    }
+
     /// Any change to a referenced turn id changes `trail_root` (tamper-evidence).
     #[test]
     fn mutating_a_turn_id_changes_trail_root(a in arb_digest(), b in arb_digest()) {

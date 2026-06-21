@@ -5,6 +5,57 @@ The corpus is versioned independently from the code (its own SemVer in `VERSION`
 MAJOR corpus release. Three version axes are never conflated: code SemVer, corpus SemVer, and the format
 identifiers baked into hashed bytes (arch P4).
 
+## [0.7.0] — Authoritative external vectors + large-tree Merkle (additive)
+
+Imports published third-party test corpora so the corpus is no longer self-blessed from the same core it validates
+(the "authoritative vectors imported" gate, quality-foundations Domain 6 #20). Every imported case's expected
+value/result comes from the UPSTREAM source; our core's output was asserted against it via `tm bless --check` and
+independently reproduced by the pure-TS oracle (executor D) — all 106 cases agree across native Rust, WASM/Node, and
+the oracle. **Additive only — no pre-existing expected byte changed** (`vector_count` 51 → 106), a MINOR release.
+
+- **Ed25519 (I6) — RFC 8032 + ed25519-speccheck + Wycheproof** (`ed25519/0002-0010` accept, `negative/0017-0039`
+  reject, SIG-1): the 5 RFC 8032 §7.1 known-answer vectors; the ed25519-speccheck "Taming the many EdDSAs" matrix
+  classified by the authoritative **Dalek-strict** column (only the mixed-order vector 3 / `ed25519/0007` is a
+  strict-accept); and a curated Wycheproof v1 subset of signature-malleability / non-canonical-S / small-order-R /
+  non-canonical-R cases. Classified by **cofactorless `verify_strict`** semantics (= our core).
+  - **Oracle correctness fix (executor D):** the pure-TS oracle previously verified Ed25519 with
+    `@noble/curves` `{ zip215: false }`, which the [0.4.0] note called "the `verify_strict` equivalent" — that was
+    **incorrect**. noble's `zip215:false` checks the COFACTORED equation and does NOT reject a small-order `R`, so
+    it wrongly accepts the small-order-`R` malleability vectors (speccheck #4/#5, Wycheproof `R==0`). The oracle now
+    implements a faithful cofactorless `verify_strict` (reject small-order `A` **or** `R`; canonical `S < L`;
+    `[S]B − [k]A == R`), cross-checked to reproduce the speccheck Dalek-strict matrix and every RFC 8032 /
+    Wycheproof-v1 / corpus case. This is an oracle **code** fix; no expected byte moved. The new small-order-R
+    vectors are precisely what exposed the latent gap — a second implementation only proves self-consistency unless
+    anchored to the external standard (cf. the [0.6.1] checkpoint lesson).
+  - **`SIG_INVALID` vs `SIG_MALFORMED_KEY`:** a small-order or non-canonical-but-decodable public key is admitted by
+    `ed25519-dalek::VerifyingKey::from_bytes` and rejected only at `verify_strict`, so our core returns
+    **`SIG_INVALID`** (not `SIG_MALFORMED_KEY`) for those — confirmed by probing the core. `SIG_MALFORMED_KEY` is
+    reserved for a wrong-length / undecodable (off-curve) key. All 23 negatives are fail-closed regardless.
+- **RFC 8785 JCS — cyberphone/json-canonicalization** (`canon/0005-0008` positive, `negative/0041-0043`, CANON-1/3/4):
+  the upstream `arrays`/`french`/`unicode`/`weird` canonical outputs, used VERBATIM as `expected.bin` — our in-house
+  encoder reproduces them byte-for-byte, including the **`weird` UTF-16 surrogate-pair + control-char key sort** (the
+  exact ordering `serde_jcs` got wrong). Upstream float cases (`values`, `structures` with `56.0`) and the documented
+  `2^53+2` integer become NEGATIVES under thoughtmark's integer-only JCS profile (I4): `CANON_NON_DETERMINISTIC_FLOAT`
+  / `CANON_INTEGER_OUT_OF_RANGE`.
+- **multiformats CID** (`cid/0002-0004`, CID-1): RAW-codec (`0x55`) + BLAKE3-256 (`0x1e`) CIDv1 for the blobs
+  `<empty>` / `"hello world"` / `0x00..0x0f`, computed with the real `multiformats` + `@noble/hashes` libraries (the
+  same the oracle consumes) — an independent third-party reference.
+- **DSSE PAE — secure-systems-lab** (`dsse/0004-0006`, SIG-2): the go-securesystemslib `TestPAE` "Empty"
+  (`DSSEv1 0  0 `) and "Unicode-only" (LEN counts bytes not chars) vectors verbatim, plus an in-toto/SLSA
+  `application/vnd.in-toto+json` Statement PAE.
+- **RFC 6962 Merkle — transparency-dev/merkle** (`merkle/0008-0014`, LOG-1): the certificate-transparency reference
+  tree roots for sizes 2–8 over leaves `d0..d7` (the canonical 8-entry CT reference tree at `merkle/0014`), matched
+  byte-for-byte by our `merkle_root`.
+- **Large-tree Merkle (cross-language agreement at scale)** (`merkle/0007`, `inclusion/0004`, `consistency/0004`,
+  LOG-1/2/3): a **1000-leaf** non-power-of-two tree with a depth-~10 inclusion proof and a 700→1000 consistency
+  proof. Blessed from the core and independently reproduced by the oracle's RFC 9162 iterative verifiers — pinning
+  byte-agreement on a wide, odd-sized tree whose left/right split structure the ≤8-leaf cases never exercise. (This
+  is a scale/shape vector, not a stack-exhaustion test: depth ~10 is trivial stack; the verifiers' constant-stack
+  property is structural, not something a depth-10 vector demonstrates.)
+- **Determinism note:** every case is a pure function of its `input`; signing determinism is supplied inline
+  (`seed_hex` → `TmSigner::from_seed`), so no per-case `env`/`FixedClock`/`VectorCsprng` is needed (manifest
+  `description`).
+
 ## [0.6.1] — Phase 2 red-team: C2SP signed-note conformance fix (input-only)
 
 - **Bug:** the checkpoint note format omitted the **mandatory blank-line separator** that

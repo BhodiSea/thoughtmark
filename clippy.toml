@@ -9,7 +9,7 @@ disallowed-methods = [
   { path = "serde_json::to_vec_pretty", reason = "non-canonical; use canon::canonicalize (I2)" },
   { path = "serde_json::to_string", reason = "non-canonical; use canon::canonicalize (I2)" },
   { path = "serde_json::to_string_pretty", reason = "non-canonical; use canon::canonicalize (I2)" },
-  { path = "ed25519_dalek::VerifyingKey::verify", reason = "use verify_strict (rejects malleable sigs) — I6" },
+  { path = "ed25519_dalek::Verifier::verify", reason = "use verify_strict (rejects malleable sigs) — I6", allow-invalid = true },
 ]
 
 # No floats anywhere on the canon/hash/CID/merkle path (WASM NaN-bit + signed-zero nondeterminism, I4).

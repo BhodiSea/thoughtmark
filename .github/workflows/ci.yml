@@ -72,6 +72,7 @@ jobs:
           cache: pnpm
       - run: cargo nextest run -p thoughtmark-testkit --test conformance --locked
       - run: wasm-pack build crates/thoughtmark-wasm --target web --out-dir ../../packages/core/wasm --out-name thoughtmark_wasm
+      - run: CI=true ./scripts/assert-wasm-blake3.sh
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @thoughtmark/core build
       - run: pnpm --filter @thoughtmark/core test:conformance
@@ -103,7 +104,7 @@ jobs:
       - run: pnpm --filter @thoughtmark/core build
       - run: pnpm -r --if-present typecheck
       - run: pnpm biome check .
-      - run: pnpm --filter @thoughtmark/core test:wasm   # wasm-bindgen-test: Node + headless browser (CI has WebDrivers)
+      - run: pnpm --filter @thoughtmark/core test:wasm # wasm-bindgen-test: Node + headless browser (CI has WebDrivers)
       - run: pnpm --filter @thoughtmark/core publint
       - run: pnpm --filter @thoughtmark/core attw
       - run: pnpm knip

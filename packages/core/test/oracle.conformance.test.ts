@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { ed25519 } from "@noble/curves/ed25519";
 import { blake3 } from "@noble/hashes/blake3";
 import { sha256 } from "@noble/hashes/sha256";
+import { sha512 } from "@noble/hashes/sha512";
 import { bytesToHex, concatBytes, hexToBytes } from "@noble/hashes/utils";
 import canonicalizeImport from "canonicalize";
 import { base32 } from "multiformats/bases/base32";
@@ -276,6 +277,45 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   return true;
 }
 
+// --- Faithful ed25519-dalek verify_strict. Executor D MUST match the core's verify_strict, NOT noble's built-in
+// `verify`: noble's `{ zip215: false }` checks the COFACTORED equation (`(R + kA - SB).clearCofactor().is0()`) and
+// does NOT reject a small-order R, so it wrongly ACCEPTS the small-order-R malleability vectors. verify_strict
+// rejects a small-order A OR R, requires a canonical scalar S < L, and checks the cofactorless equation
+// [S]B - [k]A == R by comparing the canonical compression of the recomputed R to the signature's R bytes. This
+// reproduces the ed25519-speccheck "Dalek strict" matrix and every RFC 8032 / Wycheproof-v1 / corpus ed25519 case.
+const ED_POINT = ed25519.Point;
+const ED_L = ed25519.CURVE.n;
+
+function leToBigInt(b: Uint8Array): bigint {
+  let x = 0n;
+  for (let i = b.length - 1; i >= 0; i--) x = (x << 8n) | BigInt(b[i] ?? 0);
+  return x;
+}
+
+function ed25519VerifyStrict(sig: Uint8Array, msg: Uint8Array, pub: Uint8Array): boolean {
+  if (pub.length !== 32 || sig.length !== 64) return false;
+  let a: ReturnType<typeof ED_POINT.fromHex>;
+  try {
+    a = ED_POINT.fromHex(pub);
+  } catch {
+    return false;
+  }
+  if (a.isSmallOrder()) return false;
+  const rBytes = sig.subarray(0, 32);
+  let r: ReturnType<typeof ED_POINT.fromHex>;
+  try {
+    r = ED_POINT.fromHex(rBytes);
+  } catch {
+    return false;
+  }
+  if (r.isSmallOrder()) return false;
+  const s = leToBigInt(sig.subarray(32, 64));
+  if (s >= ED_L) return false;
+  const k = ((leToBigInt(sha512(concatBytes(rBytes, pub, msg))) % ED_L) + ED_L) % ED_L;
+  const recomputed = ED_POINT.BASE.multiplyUnsafe(s).add(a.negate().multiplyUnsafe(k));
+  return bytesEqual(recomputed.toBytes(), rBytes);
+}
+
 function isPow2(n: bigint): boolean {
   return n > 0n && (n & (n - 1n)) === 0n;
 }
@@ -517,14 +557,16 @@ function oracleRun(c: Case, input: Buffer): Uint8Array {
         return errEnvelope("SIG_INVALID");
       }
       if (sig.length !== 64) return errEnvelope("SIG_INVALID");
-      let ok = false;
+      let msg: Uint8Array;
       try {
-        // zip215:false = RFC 8032 strict (cofactorless), the closest equivalent to dalek's verify_strict.
-        ok = ed25519.verify(sig, hexToBytes(req.msg_hex), pubkey, { zip215: false });
+        msg = hexToBytes(req.msg_hex);
       } catch {
-        ok = false;
+        return errEnvelope("SIG_INVALID");
       }
-      return ok ? enc.encode(OK_ENVELOPE) : errEnvelope("SIG_INVALID");
+      // Faithful verify_strict (NOT noble's cofactored verify): rejects small-order A/R and non-canonical S.
+      return ed25519VerifyStrict(sig, msg, pubkey)
+        ? enc.encode(OK_ENVELOPE)
+        : errEnvelope("SIG_INVALID");
     }
     case "did_key_decode": {
       try {
@@ -561,7 +603,7 @@ function oracleRun(c: Case, input: Buffer): Uint8Array {
         if (sig.length !== 64) continue;
         for (const pk of keys) {
           try {
-            if (ed25519.verify(sig, paeBytes, pk, { zip215: false })) return payload;
+            if (ed25519VerifyStrict(sig, paeBytes, pk)) return payload;
           } catch {
             /* try the next key */
           }
@@ -641,7 +683,7 @@ function oracleRun(c: Case, input: Buffer): Uint8Array {
         const blob = fromB64(new TextDecoder().decode(after.subarray(sp + 1)));
         if (blob.length !== 68 || !bytesEqual(blob.subarray(0, 4), kh)) continue;
         try {
-          if (ed25519.verify(blob.subarray(4), body, pubkey, { zip215: false })) {
+          if (ed25519VerifyStrict(blob.subarray(4), body, pubkey)) {
             matched = true;
             break;
           }
@@ -737,5 +779,93 @@ describe("independent pure-TS oracle (cyberphone + noble + multiformats)", () =>
         c.id,
       ).toBe(true);
     }
+  });
+});
+
+// Executor-D durability gate. The conformance loop above checks oracle == Rust-blessed bytes, which would still
+// pass if BOTH silently regressed; this block instead pins `ed25519VerifyStrict` to dalek's `verify_strict`
+// SEMANTICS, independent of the corpus expected values. The hand-roll replaced noble's library
+// `verify({ zip215: false })` because that flag checks the COFACTORED equation and rejects neither a small-order
+// nor a mixed-order point — so it is NOT `verify_strict`. We assert the divergence is real and one-directional
+// (noble accepts where strict rejects), classify WHY each divergent vector diverges, and exercise the encoding
+// guards directly — so a future `@noble/curves` upgrade that changed `fromHex`/`isSmallOrder`/`isTorsionFree` or
+// the scalar-range check cannot silently desync executor D and have it caught only by luck of corpus coverage.
+const COFACTOR_CASES = ["negative/0021", "negative/0022", "negative/0023", "negative/0024"];
+const RFC8032_KATS = [
+  "ed25519/0002",
+  "ed25519/0003",
+  "ed25519/0004",
+  "ed25519/0005",
+  "ed25519/0006",
+];
+
+describe("executor D: ed25519VerifyStrict is faithful to dalek verify_strict, not noble's cofactored verify", () => {
+  const root = vectorsDir();
+  const loadCase = (rel: string): { pub: Uint8Array; msg: Uint8Array; sig: Uint8Array } => {
+    const j = JSON.parse(read(root, `${rel}/input.json`).toString("utf8")) as {
+      pubkey_hex: string;
+      msg_hex: string;
+      sig_hex: string;
+    };
+    return {
+      pub: hexToBytes(j.pubkey_hex),
+      msg: hexToBytes(j.msg_hex),
+      sig: hexToBytes(j.sig_hex),
+    };
+  };
+  // noble's strictest library verify — the cofactored foil the hand-roll exists to correct.
+  const nobleCofactored = (sig: Uint8Array, msg: Uint8Array, pub: Uint8Array): boolean => {
+    try {
+      return ed25519.verify(sig, msg, pub, { zip215: false });
+    } catch {
+      return false;
+    }
+  };
+
+  // The four ed25519-speccheck cofactor-discriminating vectors: noble cofactored-ACCEPTS every one; dalek
+  // `verify_strict` and our oracle REJECT every one. This one-directional gap is the entire reason for the hand-roll
+  // — and proves the smaller "library verify + small-order guards" fix is insufficient (0023/0024 are mixed-order A,
+  // caught only by the cofactorless [S]B == R + [k]A comparison, not by any small-order check).
+  it.each(COFACTOR_CASES)("%s: noble cofactored-accepts, strict rejects", (rel: string) => {
+    const { pub, msg, sig } = loadCase(rel);
+    expect(nobleCofactored(sig, msg, pub), `${rel}: noble must cofactored-ACCEPT`).toBe(true);
+    expect(ed25519VerifyStrict(sig, msg, pub), `${rel}: strict must REJECT`).toBe(false);
+  });
+
+  // Pin WHY each diverges so a silent change to noble's point predicates is caught at the source: 0021/0022 carry a
+  // small-order R; 0023/0024 carry a mixed-order (non-small-order, non-torsion-free) A.
+  it("classifies the divergent cases by point structure", () => {
+    for (const rel of ["negative/0021", "negative/0022"]) {
+      const r = ED_POINT.fromHex(loadCase(rel).sig.subarray(0, 32));
+      expect(r.isSmallOrder(), `${rel}: R is small-order`).toBe(true);
+    }
+    for (const rel of ["negative/0023", "negative/0024"]) {
+      const a = ED_POINT.fromHex(loadCase(rel).pub);
+      expect(a.isSmallOrder(), `${rel}: A is not small-order`).toBe(false);
+      expect(a.isTorsionFree(), `${rel}: A is not torsion-free (mixed order)`).toBe(false);
+    }
+  });
+
+  // Strictly stronger, never gratuitously stricter: valid RFC 8032 §7.1 KATs ACCEPT under both engines.
+  it.each(
+    RFC8032_KATS,
+  )("%s: valid RFC 8032 KAT accepted by both noble and strict", (rel: string) => {
+    const { pub, msg, sig } = loadCase(rel);
+    expect(nobleCofactored(sig, msg, pub), `${rel}: noble accept`).toBe(true);
+    expect(ed25519VerifyStrict(sig, msg, pub), `${rel}: strict accept`).toBe(true);
+  });
+
+  // Encoding guards fire independent of any vector: non-canonical A or R (y >= p) and non-canonical S (>= L) REJECT.
+  it("rejects non-canonical A/R (y >= p) and non-canonical S (>= L)", () => {
+    const yEqP = new Uint8Array(32).fill(0xff); // y == p (= 2^255 - 19) in little-endian: the boundary y < p forbids
+    yEqP[0] = 0xed;
+    yEqP[31] = 0x7f;
+    const validA = hexToBytes("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a");
+    const empty = new Uint8Array(0);
+    const sigBadR = concatBytes(yEqP, new Uint8Array(32));
+    const sigBigS = concatBytes(validA, new Uint8Array(32).fill(0xff));
+    expect(ed25519VerifyStrict(new Uint8Array(64), empty, yEqP), "non-canonical A").toBe(false);
+    expect(ed25519VerifyStrict(sigBadR, empty, validA), "non-canonical R").toBe(false);
+    expect(ed25519VerifyStrict(sigBigS, empty, validA), "S >= L").toBe(false);
   });
 });

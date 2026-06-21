@@ -5,8 +5,11 @@
 //! small-order `A`/`R` and non-canonical `S`, killing the cofactor-8 malleability that would otherwise yield two
 //! valid signatures per message and corrupt Merkle-leaf stability. The [`Signer`] trait is the seam the
 //! log/checkpoint layers use, so key material never enters them. [`TmSigner`] holds its 32-byte seed in a
-//! `secrecy::SecretBox` (zeroized on drop) and is deliberately never `Debug`/`Clone`/`Serialize`. The only RNG
-//! entry — [`generate_signer`] — is behind the `keygen` feature, so the verify path never links a CSPRNG.
+//! `secrecy::SecretBox` (zeroized on drop) and is deliberately never `Debug`/`Clone`/`Serialize`. Core mints keys
+//! only via [`TmSigner::from_seed`] (a caller-supplied seed) and links no CSPRNG at all — the RNG-injecting helper
+//! is left to the host/reference app (the `keygen` feature is reserved/inert). There is no secret-adjacent equality
+//! compare in this module, so the audited verify path needs neither a CSPRNG nor a `subtle` constant-time compare;
+//! the seed lives in a `SecretBox` and the transient `SigningKey` reconstructed in `sign` zeroizes on drop.
 
 use crate::dsse::{DSSE_PAYLOAD_TYPE, DsseEnvelope, EnvSig, pae};
 use crate::error::{Error, ErrorCode};
