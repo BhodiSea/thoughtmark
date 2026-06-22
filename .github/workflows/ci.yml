@@ -135,4 +135,39 @@ jobs:
         with:
           tool: zizmor
       - run: zizmor .github/workflows
-      - uses: rhysd/actionlint@011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7 # main
+      - name: actionlint
+        run: bash <(curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) && ./actionlint -color
+
+  release-train-consistency:
+    # Refuses a PR that MUTATES or DELETES an existing spec/vectors expected byte without a MAJOR corpus bump + a
+    # new format-identifier value (arch §13.4 / §16). Needs full history to diff against origin/main.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the script diffs the working tree against origin/main
+      - run: ./scripts/release-train-consistency.sh origin/main
+
+  manifest-toolchain:
+    # Asserts spec/vectors/manifest.json's `toolchain` block == the live pinned tools, and that wasm_opt stays
+    # disabled (arch §12.5 / §16). GitHub Actions sets CI=true, so assert-manifest-toolchain.sh ENFORCES here
+    # (locally it only warns, keeping `just ci` green off the pinned host).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: "1.96.0"
+      - uses: taiki-e/install-action@15449e3094499af05d8d964a1c884208e4b8b595 # v2.81.11
+        with:
+          tool: wasm-bindgen-cli@0.2.125 # the script compares `wasm-bindgen --version` to the manifest pin
+      - run: ./scripts/assert-manifest-toolchain.sh
